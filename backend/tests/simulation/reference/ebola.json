@@ -1,0 +1,180 @@
+{
+  "provenance": "frontend/src/lib/models (TypeScript prototype engine), defaultSettings, seeds 2026,11,42,777,9001",
+  "disease": "ebola",
+  "settings": {
+    "diseaseId": "ebola",
+    "r0": 1.8,
+    "population": 403000,
+    "initialCases": 3,
+    "days": 180,
+    "runs": 200,
+    "seed": 2026,
+    "isolationBeds": 40,
+    "detectionDelay": 4.5,
+    "safeBurial": 0.5,
+    "contactTracing": 0.4,
+    "isolation": 0.5,
+    "branchingUntil": 20,
+    "pool": 600,
+    "ppeBefore": 0.3,
+    "ppeAfter": 0.85,
+    "recognitionDay": 14
+  },
+  "nRuns": 1000,
+  "pTakeOff": 0.642,
+  "pOver50": 0.604,
+  "pOver100": 0.559,
+  "pBedsExceeded": 0.371,
+  "finalCases": {
+    "low": 3,
+    "median": 214,
+    "high": 2184.05,
+    "mean": 571.83
+  },
+  "finalDeaths": {
+    "low": 1,
+    "median": 104,
+    "high": 1009.1499999999999,
+    "mean": 265.172
+  },
+  "peakHospitalised": {
+    "low": 1,
+    "median": 17,
+    "high": 175.0999999999999,
+    "mean": 46.159
+  },
+  "hcwInfections": {
+    "low": 0,
+    "median": 8,
+    "high": 80.04999999999995,
+    "mean": 21.946
+  },
+  "cumulativeAt": {
+    "30": {
+      "low": 3,
+      "median": 10,
+      "high": 29,
+      "mean": 12.098
+    },
+    "60": {
+      "low": 3,
+      "median": 21,
+      "high": 95.04999999999995,
+      "mean": 31.055
+    },
+    "90": {
+      "low": 3,
+      "median": 40.5,
+      "high": 222,
+      "mean": 68.539
+    },
+    "120": {
+      "low": 3,
+      "median": 68,
+      "high": 505.04999999999995,
+      "mean": 142.72
+    },
+    "180": {
+      "low": 3,
+      "median": 214,
+      "high": 2184.05,
+      "mean": 571.83
+    }
+  },
+  "activeAt": {
+    "30": {
+      "low": 0,
+      "median": 2,
+      "high": 12,
+      "mean": 3.559
+    },
+    "60": {
+      "low": 0,
+      "median": 3,
+      "high": 25,
+      "mean": 6.773
+    },
+    "90": {
+      "low": 0,
+      "median": 6,
+      "high": 51,
+      "mean": 13.515
+    },
+    "120": {
+      "low": 0,
+      "median": 9,
+      "high": 104,
+      "mean": 26.856
+    },
+    "180": {
+      "low": 0,
+      "median": 33.5,
+      "high": 410,
+      "mean": 102.498
+    }
+  },
+  "hospitalisedAt": {
+    "30": {
+      "low": 0,
+      "median": 1,
+      "high": 5,
+      "mean": 1.526
+    },
+    "60": {
+      "low": 0,
+      "median": 1,
+      "high": 11,
+      "mean": 2.866
+    },
+    "90": {
+      "low": 0,
+      "median": 2,
+      "high": 22,
+      "mean": 5.751
+    },
+    "120": {
+      "low": 0,
+      "median": 4,
+      "high": 45,
+      "mean": 11.322
+    },
+    "180": {
+      "low": 0,
+      "median": 14,
+      "high": 171.04999999999995,
+      "mean": 43.392
+    }
+  },
+  "deathsAt": {
+    "30": {
+      "low": 1,
+      "median": 4,
+      "high": 12,
+      "mean": 4.872
+    },
+    "60": {
+      "low": 1,
+      "median": 9,
+      "high": 40,
+      "mean": 13.687
+    },
+    "90": {
+      "low": 1,
+      "median": 19,
+      "high": 102.04999999999995,
+      "mean": 31.068
+    },
+    "120": {
+      "low": 1,
+      "median": 33,
+      "high": 223.0999999999999,
+      "mean": 65.241
+    },
+    "180": {
+      "low": 1,
+      "median": 104,
+      "high": 1009.1499999999999,
+      "mean": 265.172
+    }
+  }
+}
