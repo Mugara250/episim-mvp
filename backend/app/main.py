@@ -2,8 +2,10 @@
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
+from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
@@ -24,7 +26,12 @@ from app.api import (
     simulations,
 )
 from app.config import APP_VERSION, ESTIMATE_LABEL
+from app.schemas.base import as_utc
 from app.services import worker
+
+# Endpoints that return plain dicts go through FastAPI's encoder rather than a response model;
+# give their timestamps the same explicit UTC offset (see app.schemas.base.as_utc).
+ENCODERS_BY_TYPE[datetime] = lambda d: as_utc(d).isoformat()
 
 logging.basicConfig(level=logging.INFO)
 
