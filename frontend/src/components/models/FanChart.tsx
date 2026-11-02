@@ -30,11 +30,13 @@ export function FanChart({
 
 
 }: {series: FanSeries[];threshold?: number;thresholdLabel?: string;height?: number;}) {
-  const days = series[0]?.data.length ?? 0;
+  // Runs can have different horizons: span the longest and let shorter series end early.
+  const days = Math.max(0, ...series.map((s) => s.data.length));
   const rows = Array.from({ length: days }, (_, d) => {
     const row: Record<string, number | number[]> = { day: d };
     series.forEach((s) => {
       const b = s.data[d];
+      if (!b) return;
       row[`${s.key}Band`] = [Math.round(b.low), Math.round(b.high)];
       row[`${s.key}Median`] = Math.round(b.median);
     });

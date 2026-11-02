@@ -76,8 +76,11 @@ def district_results(raw: dict, districts: list[dict], days: int) -> list[dict]:
         reached = first <= days
         fd = summarize(first, digits=1)
         first_case_day = {k: (None if v > days else v) for k, v in fd.items()}
+        # Day 0 holds the seeded cases, not transmission; leave it out when finding the peak day.
+        new_cases = inc.copy()
+        new_cases[:, 0] = 0
         peak_day = (
-            summarize(inc[reached].argmax(1))
+            summarize(new_cases[reached].argmax(1))
             if reached.any()
             else {"low": None, "median": None, "high": None}
         )

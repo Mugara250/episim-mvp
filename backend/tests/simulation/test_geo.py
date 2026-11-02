@@ -94,3 +94,10 @@ def test_geo_performance(geo_snapshot):
     t = time.perf_counter()
     run_model(geo_snapshot())
     assert time.perf_counter() - t < 15
+
+
+def test_peak_day_ignores_seeded_cases(geo_snapshot):
+    # 10 seeded cases on day 0 outnumber early daily transmission; they must not be reported as the peak.
+    result = run_model(geo_snapshot(runs=100, initial_cases=10, days=90))
+    seed = {d["code"]: d for d in result["districts"]}["33"]
+    assert seed["peak_day"]["median"] > 0

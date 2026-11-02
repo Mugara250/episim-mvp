@@ -74,7 +74,8 @@ export function useGeographicSpread() {
     geoRuns,
     runId,
     setRunId: (id: string) => setParam('run', id),
-    capacityOptions: optionsQ.data ?? [],
+    // Profiles with real per-district beds first; others are spread across districts by population.
+    capacityOptions: [...(optionsQ.data ?? [])].sort((a, b) => Number(b.hasDistrictBeds) - Number(a.hasDistrictBeds)),
     capacityId: capacityParam ?? g?.capacity?.profileId ?? null,
     setCapacityId: (id: string | null) => setParam('capacity', id),
     boundariesQ,
