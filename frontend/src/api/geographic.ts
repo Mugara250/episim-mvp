@@ -1,3 +1,4 @@
+import { geoArea, type GeoPermissibleObjects } from 'd3-geo';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { FeatureCollection, MultiPolygon, Polygon } from 'geojson';
 import { client, unwrap } from './client';
@@ -88,11 +89,30 @@ export interface WhatIfResult {
   nationalAfter: {finalCases: Range | null;};
 }
 
+/**
+ * The boundary file follows GeoJSON (RFC 7946): exterior rings run counter-clockwise. d3-geo works on
+ * the sphere and reads that winding as "everything except this district", which fills the whole map.
+ * Reverse the rings of any feature whose spherical area exceeds a hemisphere. Shapes are unchanged.
+ */
+function rewindForD3(fc: DistrictBoundaries): DistrictBoundaries {
+  const features = fc.features.map((f) => {
+    if (geoArea(f as GeoPermissibleObjects) <= 2 * Math.PI) return f;
+    const g = f.geometry as {type: string;coordinates: number[][][] | number[][][][];};
+    const coordinates =
+    g.type === 'MultiPolygon' ?
+    (g.coordinates as number[][][][]).map((poly) => poly.map((ring) => [...ring].reverse())) :
+    (g.coordinates as number[][][]).map((ring) => [...ring].reverse());
+    return { ...f, geometry: { ...g, coordinates } };
+  });
+  return { ...fc, features } as DistrictBoundaries;
+}
+
 export function useDistrictBoundaries() {
   return useQuery({
     queryKey: ['geographic', 'districts'],
     staleTime: Infinity,
-    queryFn: async () => unwrap(await client.GET('/api/geographic/districts', {})) as unknown as DistrictBoundaries
+    queryFn: async () =>
+    rewindForD3(unwrap(await client.GET('/api/geographic/districts', {})) as unknown as DistrictBoundaries)
   });
 }
 

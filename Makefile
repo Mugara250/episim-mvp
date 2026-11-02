@@ -2,6 +2,7 @@
 SHELL := /bin/bash
 PYTHON ?= python3
 VENV := backend/.venv
+FRONTEND_PORT ?= 5173
 PY := $(VENV)/bin/python
 
 .PHONY: setup dev test seed reset-db openapi backend frontend lint backtest
@@ -34,14 +35,16 @@ backend:
 	cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000
 
 frontend:
-	cd frontend && npx vite --port 5173 --strictPort
+	cd frontend && npx vite --port $(FRONTEND_PORT) --strictPort
 
+# Stops both servers when either exits (for example if a port is already taken).
+# Use another frontend port with: make dev FRONTEND_PORT=5174
 dev: setup
-	@echo "Backend http://localhost:8000/docs  ·  Frontend http://localhost:5173"
+	@echo "Backend http://localhost:8000/docs  ·  Frontend http://localhost:$(FRONTEND_PORT)"
 	@trap 'kill 0' EXIT INT TERM; \
 	  (cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000) & \
-	  (cd frontend && npx vite --port 5173 --strictPort) & \
-	  wait
+	  (cd frontend && npx vite --port $(FRONTEND_PORT) --strictPort) & \
+	  wait -n
 
 openapi: $(VENV)/.installed
 	cd backend && .venv/bin/python -m app.export_openapi ../frontend/src/api/openapi.json
