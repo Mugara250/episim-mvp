@@ -88,3 +88,10 @@ def test_rt_estimate(client, auth):
         client.get("/api/rt/datasets/ebola-rubavu-exercise/quality", headers=auth["officer"]).json()["status"]
         == "Passed"
     )
+
+
+def test_display_rounding_matches_browser():
+    from app.services.numbers import half_up, pct
+
+    assert [half_up(v) for v in (20.5, 21.5, 0.5, 2.4, -1.5)] == [21, 22, 1, 2, -2]
+    assert pct(0.125) == "13%"

@@ -18,6 +18,8 @@ from app.services.access import scenario_access
 from app.services.audit import audit
 from app.services.capacity import beds_for
 from app.services.ids import next_code
+from app.services.numbers import half_up
+from app.services.numbers import pct as pct_text
 from app.services.pdf import render_report
 from app.services.results import run_district_codes
 
@@ -157,7 +159,7 @@ def _visible(db: Session, rid: str, user: User) -> Report:
 def _fmt(block: dict | None, pct=False) -> tuple[str, str]:
     if not block or block.get("median") is None:
         return "—", ""
-    f = (lambda v: f"{v * 100:.0f}%") if pct else (lambda v: f"{round(v):,}")
+    f = (lambda v: pct_text(v)) if pct else (lambda v: f"{half_up(v):,}")
     return f(block["median"]), f"{f(block['low'])} to {f(block['high'])} (5–95% of runs)"
 
 
@@ -169,7 +171,7 @@ def figures_from_run(db: Session, run: SimulationRun, profile: CapacityProfile |
     figs = [
         {
             "label": "Chance the outbreak takes off",
-            "value": f"{(res.p_take_off or 0) * 100:.0f}%",
+            "value": f"{pct_text(res.p_take_off or 0)}",
             "range": "share of runs",
         }
     ]
@@ -187,7 +189,7 @@ def figures_from_run(db: Session, run: SimulationRun, profile: CapacityProfile |
         figs.append(
             {
                 "label": f"Chance beds run out ({beds} beds, {profile.name})",
-                "value": f"{share * 100:.0f}%",
+                "value": pct_text(share),
                 "range": "share of runs",
             }
         )

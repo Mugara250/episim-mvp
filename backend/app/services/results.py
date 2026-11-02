@@ -3,6 +3,7 @@
 from app.config import ESTIMATE_LABEL
 from app.models import CapacityProfile, SimulationResult, SimulationRun
 from app.services.capacity import beds_for, first_day_over, p_beds_exceeded
+from app.services.numbers import half_up
 
 
 def rng(block) -> dict:
@@ -35,10 +36,10 @@ def run_summary_tiles(res: SimulationResult | None) -> dict | None:
         return None
     s = summary_dict(res)
     return {
-        "peakInfectious": round(s["peakInfectious"]["median"] or 0),
-        "peakDay": round(s["peakDay"]["median"] or 0),
-        "deaths": round(s["finalDeaths"]["median"] or 0),
-        "recovered": round(s["recovered"]["median"] or 0),
+        "peakInfectious": half_up(s["peakInfectious"]["median"] or 0),
+        "peakDay": half_up(s["peakDay"]["median"] or 0),
+        "deaths": half_up(s["finalDeaths"]["median"] or 0),
+        "recovered": half_up(s["recovered"]["median"] or 0),
         "ranges": s,
     }
 

@@ -24,6 +24,8 @@ from reportlab.platypus import (  # noqa: E402
 
 from app.config import ESTIMATE_LABEL, ESTIMATE_SENTENCE  # noqa: E402
 from app.models import Report, SimulationResult, SimulationRun  # noqa: E402
+from app.services.numbers import half_up
+from app.services.numbers import pct as pct_text
 
 PRIMARY = colors.HexColor("#0F766E")
 MUTED = colors.HexColor("#475569")
@@ -73,7 +75,7 @@ def fan_chart_png(run: SimulationRun, res: SimulationResult, beds: int | None = 
 def _fmt_range(block: dict | None, pct: bool = False) -> str:
     if not block or block.get("median") is None:
         return "—"
-    f = (lambda v: f"{v * 100:.0f}%") if pct else (lambda v: f"{round(v):,}")
+    f = (lambda v: pct_text(v)) if pct else (lambda v: f"{half_up(v):,}")
     return f"{f(block['median'])} (5–95%: {f(block['low'])} to {f(block['high'])})"
 
 
@@ -186,7 +188,7 @@ def render_report(
         s = res.summary or {}
         rows = [
             ["Result (median and 5–95% range across runs)", ""],
-            ["Chance the outbreak takes off (≥20 cases)", f"{(res.p_take_off or 0) * 100:.0f}% of runs"],
+            ["Chance the outbreak takes off (≥20 cases)", f"{pct_text(res.p_take_off or 0)} of runs"],
             ["Total cases", _fmt_range(s.get("final_cases"))],
             ["Deaths", _fmt_range(s.get("final_deaths"))],
             ["Peak beds needed", _fmt_range(s.get("peak_beds"))],
