@@ -7,6 +7,8 @@ import { DatasetStep } from './DatasetStep';
 import { DiseaseStep } from './DiseaseStep';
 import { PackageStep } from './PackageStep';
 import { NameReviewStep } from './NameReviewStep';
+import { ApproveScenarioPanel } from './ApproveScenarioPanel';
+import { useAuth } from '../../context/AuthContext';
 
 interface ScenarioBuilderProps {
   b: BuilderState;
@@ -27,6 +29,7 @@ const primaryBtn =
 
 export function ScenarioBuilder({ b, refs, institution, canClone, canRun, onClose, onClone, onRun, link }: ScenarioBuilderProps) {
   const { draft, step, readOnly, mode, base } = b;
+  const { role } = useAuth();
   const set = (patch: Partial<typeof draft>) => b.setDraft({ ...draft, ...patch });
   const pinned = mode.kind === 'view' || mode.kind === 'draft' ? base?.datasetVersion : null;
   const title =
@@ -97,6 +100,9 @@ export function ScenarioBuilder({ b, refs, institution, canClone, canRun, onClos
           <div className="px-6 md:px-8 py-4 border-t border-border flex flex-wrap items-center gap-3">
             {readOnly ?
             <>
+                {role === 'analyst' && base && !base.draft &&
+              <ApproveScenarioPanel scenarioId={base.id} />
+              }
                 <button onClick={onClose} className={secondaryBtn}>
                   <ArrowLeft size={15} /> Back
                 </button>

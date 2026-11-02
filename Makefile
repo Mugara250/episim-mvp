@@ -20,11 +20,11 @@ frontend/node_modules/.installed: frontend/package.json
 setup: $(VENV)/.installed frontend/node_modules/.installed
 	@test -f .env || cp .env.example .env
 	cd backend && .venv/bin/alembic upgrade head
-	cd backend && .venv/bin/python -m app.seed --if-empty
+	cd backend && .venv/bin/python -m app.seed --if-empty --with-runs
 
 seed: $(VENV)/.installed
 	cd backend && .venv/bin/alembic upgrade head
-	cd backend && .venv/bin/python -m app.seed
+	cd backend && .venv/bin/python -m app.seed --with-runs
 
 reset-db:
 	rm -f backend/episim.db

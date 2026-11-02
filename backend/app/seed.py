@@ -728,6 +728,8 @@ def run_seed_simulations(db: Session) -> list[str]:
         ("SC-1039", "seihfr", None, 180, 2),
         ("SC-1050", "seihfr_geo", "33", 120, 3),
         ("SC-1051", "seihfr_geo", "33", 120, 3),
+        # Late detection: 10 cases already infectious when the run starts (demo of district spread).
+        ("SC-1050", "seihfr_geo", "33", 120, 10),
     ]
     aline = db.get(User, "U-04")
     worker = SimulationWorker(1)
@@ -761,7 +763,37 @@ def run_seed_simulations(db: Session) -> list[str]:
         db.commit()
         worker.submit(run.id).result()
         ids.append(run.id)
+    approve_seeded_scenario(db, "SC-1042", ids[0])
     return ids
+
+
+def approve_seeded_scenario(db: Session, scenario_id: str, run_id: str) -> None:
+    """Approves one seeded scenario against a real engine run so policy-maker pages have results.
+    The plan sentence is sample text, so the approval stays marked illustrative."""
+    from app.models import SimulationRun
+    from app.services.ids import next_code
+
+    if db.scalar(select(ScenarioApproval).where(ScenarioApproval.scenario_id == scenario_id)):
+        return
+    sc = db.get(Scenario, scenario_id)
+    preset = db.get(DiseasePreset, sc.preset_id)
+    run = db.get(SimulationRun, run_id)
+    db.add(
+        ScenarioApproval(
+            id=next_code(db, ScenarioApproval, "APS-", 2),
+            scenario_id=sc.id,
+            run_id=run_id,
+            name=sc.name,
+            disease=preset.disease,
+            plan_summary=(
+                "Start contact tracing and case isolation within days of the first confirmed case in Rubavu."
+            ),
+            approved_by="Dr. Sarah Icyeza",
+            settings={"package": sc.package_id, "horizonDays": run.horizon_days},
+            illustrative=True,
+        )
+    )
+    db.commit()
 
 
 def main() -> None:
