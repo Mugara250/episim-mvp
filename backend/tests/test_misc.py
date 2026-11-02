@@ -14,11 +14,17 @@ def test_seed_is_idempotent(client):
 
 
 def test_seeded_records_are_marked(client, auth):
-    for path in ("/api/population/datasets", "/api/intervention-packages"):
-        rows = client.get(path, headers=auth["analyst"]).json()
-        assert rows and all(
-            r["illustrative"] for r in rows if not r.get("createdBy", "").startswith("Aline") or True
-        )
+    import json
+    from pathlib import Path
+
+    seed_dir = Path(__file__).resolve().parents[1] / "app/data/seed"
+    seeded_packages = {p["id"] for p in json.loads((seed_dir / "interventions.json").read_text())["packages"]}
+    datasets = client.get("/api/population/datasets", headers=auth["analyst"]).json()
+    seeded = [d for d in datasets if d["id"] == "ds-districts-2022" or d["id"] == "ds-gasabo"]
+    assert seeded and all(d["illustrative"] for d in seeded)
+    packages = client.get("/api/intervention-packages", headers=auth["analyst"]).json()
+    seeded = [p for p in packages if p["id"] in seeded_packages]
+    assert seeded and all(p["illustrative"] for p in seeded)
     types = client.get("/api/intervention-types", headers=auth["analyst"]).json()
     assert all(t["placeholder"] for t in types if t["builtIn"])
 
