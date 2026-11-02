@@ -1,0 +1,215 @@
+{
+ "note": "Populations approximate the 2022 census (illustrative). Beds are placeholders for design review.",
+ "districts": [
+  {
+   "code": "12",
+   "name": "Gasabo",
+   "population": 879505,
+   "beds": 60
+  },
+  {
+   "code": "13",
+   "name": "Kicukiro",
+   "population": 491731,
+   "beds": 40
+  },
+  {
+   "code": "11",
+   "name": "Nyarugenge",
+   "population": 374319,
+   "beds": 45
+  },
+  {
+   "code": "44",
+   "name": "Burera",
+   "population": 387729,
+   "beds": 15
+  },
+  {
+   "code": "42",
+   "name": "Gakenke",
+   "population": 352421,
+   "beds": 15
+  },
+  {
+   "code": "45",
+   "name": "Gicumbi",
+   "population": 448824,
+   "beds": 20
+  },
+  {
+   "code": "43",
+   "name": "Musanze",
+   "population": 476522,
+   "beds": 40
+  },
+  {
+   "code": "41",
+   "name": "Rulindo",
+   "population": 350933,
+   "beds": 15
+  },
+  {
+   "code": "22",
+   "name": "Gisagara",
+   "population": 397051,
+   "beds": 15
+  },
+  {
+   "code": "24",
+   "name": "Huye",
+   "population": 381900,
+   "beds": 25
+  },
+  {
+   "code": "28",
+   "name": "Kamonyi",
+   "population": 450849,
+   "beds": 20
+  },
+  {
+   "code": "27",
+   "name": "Muhanga",
+   "population": 358433,
+   "beds": 25
+  },
+  {
+   "code": "25",
+   "name": "Nyamagabe",
+   "population": 372906,
+   "beds": 15
+  },
+  {
+   "code": "21",
+   "name": "Nyanza",
+   "population": 365718,
+   "beds": 15
+  },
+  {
+   "code": "23",
+   "name": "Nyaruguru",
+   "population": 318126,
+   "beds": 15
+  },
+  {
+   "code": "26",
+   "name": "Ruhango",
+   "population": 359121,
+   "beds": 15
+  },
+  {
+   "code": "57",
+   "name": "Bugesera",
+   "population": 551103,
+   "beds": 25
+  },
+  {
+   "code": "53",
+   "name": "Gatsibo",
+   "population": 551255,
+   "beds": 20
+  },
+  {
+   "code": "54",
+   "name": "Kayonza",
+   "population": 457156,
+   "beds": 20
+  },
+  {
+   "code": "55",
+   "name": "Kirehe",
+   "population": 460860,
+   "beds": 15
+  },
+  {
+   "code": "56",
+   "name": "Ngoma",
+   "population": 404048,
+   "beds": 15
+  },
+  {
+   "code": "52",
+   "name": "Nyagatare",
+   "population": 653861,
+   "beds": 25
+  },
+  {
+   "code": "51",
+   "name": "Rwamagana",
+   "population": 484953,
+   "beds": 25
+  },
+  {
+   "code": "31",
+   "name": "Karongi",
+   "population": 369039,
+   "beds": 20
+  },
+  {
+   "code": "35",
+   "name": "Ngororero",
+   "population": 367955,
+   "beds": 15
+  },
+  {
+   "code": "34",
+   "name": "Nyabihu",
+   "population": 319047,
+   "beds": 20
+  },
+  {
+   "code": "37",
+   "name": "Nyamasheke",
+   "population": 434852,
+   "beds": 20
+  },
+  {
+   "code": "33",
+   "name": "Rubavu",
+   "population": 546683,
+   "beds": 70
+  },
+  {
+   "code": "36",
+   "name": "Rusizi",
+   "population": 485529,
+   "beds": 35
+  },
+  {
+   "code": "32",
+   "name": "Rutsiro",
+   "population": 369180,
+   "beds": 15
+  }
+ ],
+ "borderRisks": [
+  {
+   "country": "DRC",
+   "risk": "High"
+  },
+  {
+   "country": "Uganda",
+   "risk": "Medium"
+  },
+  {
+   "country": "Burundi",
+   "risk": "Low"
+  },
+  {
+   "country": "Tanzania",
+   "risk": "Low"
+  }
+ ],
+ "geoCapacityProfiles": [
+  {
+   "id": "moh-q3",
+   "name": "MoH isolation beds · Q3 2026",
+   "bedMultiplier": 1
+  },
+  {
+   "id": "surge",
+   "name": "Surge plan · +40% beds",
+   "bedMultiplier": 1.4
+  }
+ ]
+}

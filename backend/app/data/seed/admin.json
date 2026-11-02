@@ -1,0 +1,342 @@
+{
+ "users": [
+  {
+   "id": "U-01",
+   "name": "Dr. Jean Damascene",
+   "email": "j.damascene@rbc.gov.rw",
+   "role": "admin",
+   "organisation": "Rwanda Biomedical Centre",
+   "status": "Active",
+   "lastLogin": "2026-10-08 08:12"
+  },
+  {
+   "id": "U-02",
+   "name": "Dr. Sarah Icyeza",
+   "email": "s.icyeza@rbc.gov.rw",
+   "role": "analyst",
+   "organisation": "Rwanda Biomedical Centre",
+   "status": "Active",
+   "lastLogin": "2026-10-08 09:40"
+  },
+  {
+   "id": "U-03",
+   "name": "Dr. Eric Habimana",
+   "email": "e.habimana@ur.ac.rw",
+   "role": "analyst",
+   "organisation": "University of Rwanda",
+   "status": "Active",
+   "lastLogin": "2026-10-06 14:05"
+  },
+  {
+   "id": "U-04",
+   "name": "Aline Uwase",
+   "email": "a.uwase@rbc.gov.rw",
+   "role": "analyst",
+   "organisation": "Rwanda Biomedical Centre",
+   "status": "Active",
+   "lastLogin": "2026-10-08 10:02"
+  },
+  {
+   "id": "U-05",
+   "name": "Patrick Niyonzima",
+   "email": "p.niyonzima@pih.org",
+   "role": "analyst",
+   "organisation": "Partners In Health",
+   "status": "Pending",
+   "lastLogin": "Never"
+  },
+  {
+   "id": "U-06",
+   "name": "Dr. Robert K.",
+   "email": "r.kalisa@gisenyihospital.rw",
+   "role": "officer",
+   "organisation": "Ministry of Health",
+   "hospitalId": "H-01",
+   "status": "Active",
+   "lastLogin": "2026-10-08 07:55"
+  },
+  {
+   "id": "U-07",
+   "name": "Grace Mukamana",
+   "email": "g.mukamana@kibagabaga.rw",
+   "role": "officer",
+   "organisation": "Ministry of Health",
+   "hospitalId": "H-02",
+   "status": "Active",
+   "lastLogin": "2026-10-07 18:21"
+  },
+  {
+   "id": "U-08",
+   "name": "Claude Nshimiyimana",
+   "email": "c.nshimiyimana@masaka.rw",
+   "role": "officer",
+   "organisation": "Ministry of Health",
+   "hospitalId": "H-03",
+   "status": "Inactive",
+   "lastLogin": "2026-08-14 11:30"
+  },
+  {
+   "id": "U-09",
+   "name": "Hon. Minister",
+   "email": "minister.office@moh.gov.rw",
+   "role": "policymaker",
+   "organisation": "Ministry of Health",
+   "status": "Active",
+   "lastLogin": "2026-10-07 16:48"
+  },
+  {
+   "id": "U-10",
+   "name": "Diane Ingabire",
+   "email": "d.ingabire@moh.gov.rw",
+   "role": "policymaker",
+   "organisation": "Ministry of Health",
+   "status": "Active",
+   "lastLogin": "2026-10-05 09:15"
+  }
+ ],
+ "organisations": [
+  "Rwanda Biomedical Centre",
+  "Ministry of Health",
+  "University of Rwanda",
+  "Partners In Health"
+ ],
+ "hospitals": [
+  {
+   "id": "H-01",
+   "name": "Gisenyi District Hospital",
+   "district": "Rubavu",
+   "isolationBeds": 24,
+   "registered": "2026-02-11"
+  },
+  {
+   "id": "H-02",
+   "name": "Kibagabaga District Hospital",
+   "district": "Gasabo",
+   "isolationBeds": 16,
+   "registered": "2026-02-11"
+  },
+  {
+   "id": "H-03",
+   "name": "Masaka District Hospital",
+   "district": "Kicukiro",
+   "isolationBeds": 20,
+   "registered": "2026-03-04"
+  },
+  {
+   "id": "H-04",
+   "name": "Ruhengeri Referral Hospital",
+   "district": "Musanze",
+   "isolationBeds": 18,
+   "registered": "2026-04-19"
+  },
+  {
+   "id": "H-05",
+   "name": "Kibuye Referral Hospital",
+   "district": "Karongi",
+   "isolationBeds": 12,
+   "registered": "2026-06-02"
+  }
+ ],
+ "auditLog": [
+  {
+   "id": "A-0412",
+   "time": "2026-10-08 10:02",
+   "user": "Aline Uwase",
+   "role": "Epidemiologist",
+   "action": "Sign in",
+   "target": "EpiSim",
+   "details": "Signed in"
+  },
+  {
+   "id": "A-0411",
+   "time": "2026-10-08 09:47",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Simulation run",
+   "target": "Ebola · Rubavu",
+   "details": "200 runs, approved set v2.1"
+  },
+  {
+   "id": "A-0410",
+   "time": "2026-10-08 08:15",
+   "user": "Dr. Jean Damascene",
+   "role": "Admin",
+   "action": "User updated",
+   "target": "Grace Mukamana",
+   "details": "Hospital set to Kibagabaga District Hospital"
+  },
+  {
+   "id": "A-0409",
+   "time": "2026-10-07 17:30",
+   "user": "Aline Uwase",
+   "role": "Epidemiologist",
+   "action": "Report submitted",
+   "target": "Weekly situation report · week 41",
+   "details": "Sent for approval"
+  },
+  {
+   "id": "A-0408",
+   "time": "2026-10-07 11:20",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Parameter change",
+   "target": "Marburg · draft set v1.4",
+   "details": "Incubation period range 5–9 → 4–10 days"
+  },
+  {
+   "id": "A-0407",
+   "time": "2026-10-06 15:05",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Report published",
+   "target": "Weekly situation report · week 40",
+   "details": "Visible to policy makers"
+  },
+  {
+   "id": "A-0406",
+   "time": "2026-10-06 14:58",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Report approved",
+   "target": "Weekly situation report · week 40",
+   "details": "Approved without changes"
+  },
+  {
+   "id": "A-0405",
+   "time": "2026-10-05 10:40",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Simulation run",
+   "target": "Ebola · 4 approved scenarios",
+   "details": "150 runs each"
+  },
+  {
+   "id": "A-0404",
+   "time": "2026-10-04 16:12",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Report approved",
+   "target": "Effect of faster isolation on Ebola",
+   "details": "Approved"
+  },
+  {
+   "id": "A-0403",
+   "time": "2026-10-04 16:14",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Report published",
+   "target": "Effect of faster isolation on Ebola",
+   "details": "Visible to policy makers"
+  },
+  {
+   "id": "A-0402",
+   "time": "2026-10-02 09:05",
+   "user": "Dr. Eric Habimana",
+   "role": "Epidemiologist",
+   "action": "Parameter set approved",
+   "target": "Ebola · set v2.1",
+   "details": "Replaces v2.0"
+  },
+  {
+   "id": "A-0401",
+   "time": "2026-10-01 18:44",
+   "user": "Dr. Eric Habimana",
+   "role": "Epidemiologist",
+   "action": "Parameter change",
+   "target": "Ebola · draft set v2.1",
+   "details": "Spread rate (R0) range 1.4–2.2 → 1.5–2.4"
+  },
+  {
+   "id": "A-0400",
+   "time": "2026-10-01 12:30",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Report published",
+   "target": "Marburg: protecting health workers",
+   "details": "Visible to policy makers"
+  },
+  {
+   "id": "A-0399",
+   "time": "2026-09-29 08:50",
+   "user": "Dr. Jean Damascene",
+   "role": "Admin",
+   "action": "Account status changed",
+   "target": "Claude Nshimiyimana",
+   "details": "Active → Inactive"
+  },
+  {
+   "id": "A-0398",
+   "time": "2026-09-24 14:10",
+   "user": "Dr. Sarah Icyeza",
+   "role": "Epidemiologist",
+   "action": "Parameter set approved",
+   "target": "Marburg · set v1.3",
+   "details": "Provisional values"
+  },
+  {
+   "id": "A-0397",
+   "time": "2026-09-22 11:02",
+   "user": "Dr. Jean Damascene",
+   "role": "Admin",
+   "action": "Hospital updated",
+   "target": "Gisenyi District Hospital",
+   "details": "Isolation beds 20 → 24"
+  }
+ ],
+ "accessRequests": [
+  {
+   "id": "REQ-1027",
+   "name": "Dr. John Mugisha",
+   "email": "j.mugisha@chuk.rw",
+   "institution": "University Teaching Hospital of Kigali (CHUK)",
+   "institutionAccountId": "CHUK-EMP-04418",
+   "position": "Infectious Disease Physician",
+   "password": "request123",
+   "status": "Pending",
+   "submittedAt": "2026-10-09T08:12:00",
+   "seenByAdmin": false
+  },
+  {
+   "id": "REQ-1026",
+   "name": "Alice Uwimana",
+   "email": "a.uwimana@moh.gov.rw",
+   "institution": "Ministry of Health Rwanda",
+   "institutionAccountId": "MOH-2291",
+   "position": "Director of Epidemic Preparedness",
+   "password": "request123",
+   "status": "Pending",
+   "submittedAt": "2026-10-08T15:40:00",
+   "seenByAdmin": true
+  },
+  {
+   "id": "REQ-1024",
+   "name": "Dr. Claudine Ingabire",
+   "email": "c.ingabire@rbc.gov.rw",
+   "institution": "Rwanda Biomedical Centre",
+   "institutionAccountId": "RBC-STF-1180",
+   "position": "Senior Epidemiologist",
+   "password": "request123",
+   "status": "Approved",
+   "submittedAt": "2026-10-06T09:05:00",
+   "decidedAt": "2026-10-06T11:30:00",
+   "decidedBy": "Dr. Jean Damascene",
+   "assignedRole": "analyst",
+   "seenByAdmin": true
+  },
+  {
+   "id": "REQ-1021",
+   "name": "Kevin Habimana",
+   "email": "kevin.h@gmail.com",
+   "institution": "Other",
+   "institutionAccountId": "N/A",
+   "position": "Student",
+   "password": "request123",
+   "status": "Rejected",
+   "submittedAt": "2026-10-03T13:22:00",
+   "decidedAt": "2026-10-04T08:10:00",
+   "decidedBy": "Dr. Jean Damascene",
+   "rejectionReason": "Account ID could not be verified with a registered institution.",
+   "seenByAdmin": true
+  }
+ ]
+}

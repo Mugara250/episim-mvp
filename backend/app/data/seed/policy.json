@@ -1,0 +1,300 @@
+{
+ "approvedReports": [
+  {
+   "id": "APR-014",
+   "title": "Weekly situation report · week 40",
+   "disease": "Ebola",
+   "type": "Weekly situation",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "06 Oct 2026",
+   "author": "Aline Uwase",
+   "summary": "Ebola cases in Rubavu are still rising. If nothing changes, the outbreak is likely to keep growing for several weeks, and isolation beds may run short.",
+   "keyPoints": [
+    "Each sick person is currently infecting more than one other person.",
+    "Isolation beds at the district hospital are close to full.",
+    "Finding and isolating sick people faster makes the biggest difference."
+   ],
+   "figures": [
+    {
+     "label": "Possible total cases over 6 months",
+     "range": "40 to 260 cases"
+    },
+    {
+     "label": "Isolation beds needed at the busiest point",
+     "range": "12 to 45 beds"
+    }
+   ],
+   "recommendations": [
+    "Fund extra isolation beds in Rubavu now.",
+    "Support faster testing so sick people are isolated within 3 days."
+   ]
+  },
+  {
+   "id": "APR-013",
+   "title": "Effect of faster isolation on Ebola",
+   "disease": "Ebola",
+   "type": "Scenario brief",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "04 Oct 2026",
+   "author": "Aline Uwase",
+   "summary": "Isolating sick people within 3 days instead of 7 lowers the likely number of cases in most scenario runs.",
+   "keyPoints": [
+    "Speed of isolation matters more than any single other action.",
+    "Results are estimates, not exact predictions."
+   ],
+   "figures": [
+    {
+     "label": "Cases with isolation within 3 days",
+     "range": "about half as many as with 7 days"
+    }
+   ],
+   "recommendations": [
+    "Set a national target of isolation within 3 days of symptoms."
+   ]
+  },
+  {
+   "id": "APR-011",
+   "title": "Marburg: protecting health workers",
+   "disease": "Marburg",
+   "type": "Scenario brief",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "01 Oct 2026",
+   "author": "Aline Uwase",
+   "summary": "In 2024, most Marburg cases in Rwanda were health workers. Giving staff full protection early lowers how many of them are infected.",
+   "keyPoints": [
+    "Health workers face the highest risk early in an outbreak.",
+    "Marburg figures are still provisional."
+   ],
+   "figures": [
+    {
+     "label": "Share of cases among health workers",
+     "range": "18% to 52%"
+    }
+   ],
+   "recommendations": [
+    "Keep protective equipment stocked at all referral hospitals."
+   ]
+  },
+  {
+   "id": "APR-008",
+   "title": "Isolation capacity across Western Province",
+   "disease": "Ebola",
+   "type": "Capacity review",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "24 Sep 2026",
+   "author": "Aline Uwase",
+   "summary": "Current isolation capacity may not be enough in about 4 in 10 scenario runs.",
+   "keyPoints": [
+    "Opening 8 extra beds lowers this to about 1 in 10 runs."
+   ],
+   "figures": [
+    {
+     "label": "Chance beds run short",
+     "range": "1 in 10 to 4 in 10 runs"
+    }
+   ],
+   "recommendations": [
+    "Prepare annex wards that can open within 48 hours."
+   ]
+  }
+ ],
+ "approvedScenarios": [
+  {
+   "id": "APS-01",
+   "name": "Ebola · current response",
+   "diseaseId": "ebola",
+   "plan": "Sick people are isolated after about 4–5 days, half of burials are safe, and some contacts are followed up.",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "05 Oct 2026",
+   "detectionDelay": 4.5,
+   "safeBurial": 0.5,
+   "contactTracing": 0.4,
+   "isolationBeds": 40
+  },
+  {
+   "id": "APS-02",
+   "name": "Ebola · isolate within 3 days",
+   "diseaseId": "ebola",
+   "plan": "Same as today, but sick people are found and isolated within 3 days.",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "05 Oct 2026",
+   "detectionDelay": 3,
+   "safeBurial": 0.5,
+   "contactTracing": 0.4,
+   "isolationBeds": 40
+  },
+  {
+   "id": "APS-03",
+   "name": "Ebola · slow response (7 days)",
+   "diseaseId": "ebola",
+   "plan": "Sick people take about a week to be isolated, for example if testing is delayed.",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "05 Oct 2026",
+   "detectionDelay": 7,
+   "safeBurial": 0.5,
+   "contactTracing": 0.4,
+   "isolationBeds": 40
+  },
+  {
+   "id": "APS-04",
+   "name": "Ebola · full package",
+   "diseaseId": "ebola",
+   "plan": "Isolation within 3 days, 80% safe burials and most contacts followed up daily.",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "06 Oct 2026",
+   "detectionDelay": 3,
+   "safeBurial": 0.8,
+   "contactTracing": 0.7,
+   "isolationBeds": 40
+  },
+  {
+   "id": "APS-05",
+   "name": "Marburg · protect health workers early",
+   "diseaseId": "marburg",
+   "plan": "Hospital staff wear full protection from day 7 instead of day 21.",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "06 Oct 2026",
+   "detectionDelay": 4,
+   "safeBurial": 0.6,
+   "contactTracing": 0.5,
+   "isolationBeds": 30,
+   "ppeAfter": 0.9,
+   "recognitionDay": 7
+  }
+ ],
+ "interventionReviews": [
+  {
+   "id": "INT-1",
+   "name": "Isolate sick people within 3 days",
+   "disease": "Both",
+   "description": "Faster testing and transport so people with symptoms are isolated quickly.",
+   "effect": "Fewer cases",
+   "effectRange": "About 30% to 60% fewer cases",
+   "cost": "Medium",
+   "status": "Recommended",
+   "basis": "Approved scenarios APS-01 and APS-02"
+  },
+  {
+   "id": "INT-2",
+   "name": "Safe and dignified burials",
+   "disease": "Both",
+   "description": "Trained teams handle burials so the virus does not spread at funerals.",
+   "effect": "Fewer cases",
+   "effectRange": "About 15% to 40% fewer cases",
+   "cost": "Low",
+   "status": "Recommended",
+   "basis": "Approved scenario APS-04"
+  },
+  {
+   "id": "INT-3",
+   "name": "Full protection for hospital staff from day one",
+   "disease": "Marburg",
+   "description": "Gloves, gowns and masks for all ward staff as soon as a case is suspected.",
+   "effect": "Fewer health workers infected",
+   "effectRange": "About 40% to 70% fewer health-worker cases",
+   "cost": "Medium",
+   "status": "Recommended",
+   "basis": "Approved scenario APS-05"
+  },
+  {
+   "id": "INT-4",
+   "name": "Follow up contacts daily",
+   "disease": "Both",
+   "description": "Teams check every contact of a sick person each day for 21 days.",
+   "effect": "Fewer cases",
+   "effectRange": "About 10% to 35% fewer cases",
+   "cost": "Medium",
+   "status": "Under review",
+   "basis": "Approved scenario APS-04"
+  },
+  {
+   "id": "INT-5",
+   "name": "Extra isolation beds in Rubavu",
+   "disease": "Ebola",
+   "description": "Open an 8-bed annex ward at Gisenyi District Hospital.",
+   "effect": "Beds run short less often",
+   "effectRange": "From about 4 in 10 runs to 1 in 10 runs",
+   "cost": "High",
+   "status": "Under review",
+   "basis": "Capacity review APR-008"
+  }
+ ],
+ "alerts": [
+  {
+   "id": "AL-1",
+   "level": "high",
+   "title": "Isolation beds in Rubavu are almost full",
+   "detail": "Gisenyi District Hospital reports 21 of 24 isolation beds in use. Extra beds are being opened.",
+   "date": "08 Oct 2026"
+  },
+  {
+   "id": "AL-2",
+   "level": "medium",
+   "title": "Health workers among Marburg cases",
+   "detail": "Two health workers infected this week. Early protection for staff is under review.",
+   "date": "07 Oct 2026"
+  },
+  {
+   "id": "AL-3",
+   "level": "info",
+   "title": "New report approved",
+   "detail": "Weekly situation report for week 40 is ready to read.",
+   "date": "06 Oct 2026"
+  }
+ ],
+ "reportDrafts": [
+  {
+   "id": "RPT-031",
+   "title": "Ebola in Rubavu: effect of faster isolation",
+   "disease": "Ebola",
+   "scenarioId": "SCN-118",
+   "updated": "07 Oct 2026",
+   "status": "Draft",
+   "summary": "Scenario estimates suggest isolating sick people within 3 days lowers the median outbreak size. The uncertainty range is wide, so results compare options rather than predict exact numbers."
+  },
+  {
+   "id": "RPT-030",
+   "title": "Marburg: protecting health workers early",
+   "disease": "Marburg",
+   "scenarioId": "SCN-117",
+   "updated": "06 Oct 2026",
+   "status": "Draft",
+   "summary": "In most runs, the share of cases among health workers falls when full protection starts earlier. Marburg parameters are provisional."
+  },
+  {
+   "id": "RPT-028",
+   "title": "Ebola in Gasabo: isolation bed needs",
+   "disease": "Ebola",
+   "scenarioId": "SCN-112",
+   "updated": "01 Oct 2026",
+   "status": "Pending approval",
+   "summary": "Across runs, peak isolation bed demand stays within current capacity in about two thirds of scenarios."
+  },
+  {
+   "id": "RPT-024",
+   "title": "Weekly scenario brief · week 39",
+   "disease": "Ebola",
+   "scenarioId": "SCN-112",
+   "updated": "24 Sep 2026",
+   "status": "Approved",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "summary": "Summary of the week’s scenario runs and their uncertainty ranges."
+  }
+ ],
+ "parameterSets": [
+  {
+   "diseaseId": "ebola",
+   "version": "v2.1",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "14 Sep 2026",
+   "provisional": false
+  },
+  {
+   "diseaseId": "marburg",
+   "version": "v1.3",
+   "approvedBy": "Dr. Sarah Icyeza",
+   "approvedOn": "02 Oct 2026",
+   "provisional": true
+  }
+ ]
+}
