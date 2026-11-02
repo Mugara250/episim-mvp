@@ -11,16 +11,12 @@ import type { AccountRequest, AccountRequestInput, AccountRequestStatus } from '
 
 type AccessRequestOut = components['schemas']['AccessRequestOut'];
 
-/** Public status shape (GET /api/access-requests/status). */
+/** Public status shape (GET /api/access-requests/status). Deliberately minimal: anyone who knows
+ * an email can call it, so it carries no name, role or rejection reason. */
 interface RequestStatusOut {
-  id: string;
-  name: string;
-  email: string;
   status: AccountRequestStatus;
   submittedAt: string;
   decidedAt?: string | null;
-  assignedRole?: string | null;
-  rejectionReason?: string | null;
 }
 
 const toRequest = (r: AccessRequestOut): AccountRequest => ({
@@ -74,9 +70,7 @@ export function mergeStatus(base: Omit<AccountRequest, 'status' | 'seenByAdmin'>
     seenByAdmin: false,
     ...base,
     status: s?.status ?? base.status ?? 'Pending',
-    decidedAt: s?.decidedAt ?? undefined,
-    assignedRole: (s?.assignedRole ?? undefined) as Role | undefined,
-    rejectionReason: s?.rejectionReason ?? undefined
+    decidedAt: s?.decidedAt ?? base.decidedAt
   };
 }
 

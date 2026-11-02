@@ -51,8 +51,8 @@ def test_analyst_reads_capacity_options_only(client, auth):
 
 def test_officer_edits_own_capacity_only(client, auth):
     profiles = {p["id"]: p for p in client.get("/api/capacity-profiles", headers=auth["officer"]).json()}
-    own, other = profiles["cap-gisenyi-2026"], profiles["cap-kigali-2026"]
-    assert own["canEdit"] and not other["canEdit"]
+    own = profiles["cap-gisenyi-2026"]
+    assert own["canEdit"] and "cap-kigali-2026" not in profiles  # other institutions are not listed
     body = {
         k: own[k]
         for k in (
@@ -72,7 +72,7 @@ def test_officer_edits_own_capacity_only(client, auth):
         client.put("/api/capacity-profiles/cap-gisenyi-2026", headers=auth["officer"], json=body).status_code
         == 200
     )
-    body2 = {**body, "name": other["name"], "institutionId": other["institutionId"]}
+    body2 = {**body, "name": "Kigali Region - 2026", "institutionId": "R-KGL"}
     assert (
         client.put("/api/capacity-profiles/cap-kigali-2026", headers=auth["officer"], json=body2).status_code
         == 403

@@ -15,6 +15,9 @@ BOUNDARY_ATTRIBUTION = "District boundaries: geoBoundaries, CC BY 4.0"
 MOVEMENT_LABEL = "Estimated (gravity model), not observed travel data"
 
 
+DEV_JWT_SECRET = "dev-only-change-me"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(str(BACKEND_DIR.parent / ".env"), str(BACKEND_DIR / ".env")),
@@ -22,7 +25,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "sqlite:///./episim.db"
-    jwt_secret: str = "dev-only-change-me"
+    jwt_secret: str = DEV_JWT_SECRET
     jwt_expire_minutes: int = 480
     demo_mode: bool = True
     worker_threads: int = 2

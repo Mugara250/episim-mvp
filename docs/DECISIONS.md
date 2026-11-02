@@ -193,3 +193,18 @@ should be looked at by an epidemiologist or the product owner.
 | Default movement share | Engine default: residents spend 2% of time in other districts (an assumption) | Kept at 2% and stored in each run's snapshot; not tuned to make the demo map look busier. The demo uses a late-detection scenario instead | Honesty: the parameter is a guess and the largest uncertainty in the geographic model. **Needs review** |
 | Back-test data | Docs section 10: back-test on a published outbreak | `tools/backtest` uses WHO situation-report counts compiled in `cmrivers/ebola`; the CSV is downloaded at run time, not vendored, because the repository states no licence | Results (including Guinea's large miss and the sensitivity to the starting count) are in `docs/backtest/RESULTS.md` |
 | `make dev` | — | Stops both servers if either exits (for example when a port is taken); `make dev FRONTEND_PORT=5174` picks another frontend port | Previously the backend kept running after the frontend failed to bind |
+
+## Final review fixes
+
+| Topic | Finding | What we did | Why |
+|---|---|---|---|
+| Report authorship | Any Epidemiologist could edit another author's draft, then approve it | Only the author can edit or submit a report; others can return it to draft or approve it | Keeps docs D10 (author ≠ approver) meaningful |
+| Notifications | The bell showed hard-coded prototype items, including an ICU "forecast" | The bell lists the user's real recent finished, failed or cancelled runs | Honesty rules; the model has no ICU output and makes no forecasts |
+| Landing wording | Footer still said "AI-driven"; headline said "Predict." | Footer rewritten; headline is "Explore. Prepare. Protect." | Results are scenario estimates, not predictions |
+| Non-demo safety | Default JWT secret and published demo passwords would still work with `DEMO_MODE=false` | The app refuses to start with the development secret when demo mode is off; demo accounts cannot sign in outside demo mode | Turning off demo mode must actually lock the demo doors |
+| Demo role switch | With `DEMO_MODE=true`, `POST /api/auth/demo-login` gives any role, including admin, without a password | Kept for the local demo, documented in the README | Needed for the role switcher; never expose a demo-mode server publicly |
+| Access-request lookup | The public status endpoint returned the applicant's name, assigned role and rejection reason to anyone who knew the email | It now returns only status and dates; details stay with administrators | Personal data (Rwanda Law No. 058/2021) |
+| Officer capacity visibility | Officers could read every institution's capacity profiles | Officers see their own institution's profiles only, following `rbac.ts`; analysis-time selectors still list every profile through `/capacity-profiles/options` | `rbac.ts`: "own institution's profiles" |
+| Cancel race | A cancel between the worker reading "queued" and writing "running" could be overwritten | The worker claims a run with a single conditional update (`status = 'queued'`) | A cancelled run must stay cancelled |
+| About page | Said only Marburg is provisional | Both built-in presets are described as provisional until reviewed | Matches the screens |
+| Upload buffering | CSV uploads are read into memory before the 50 MB check | Not changed in the MVP | Low risk for a local demo; stream in chunks before any shared deployment |

@@ -25,7 +25,7 @@ from app.api import (
     scenarios,
     simulations,
 )
-from app.config import APP_VERSION, ESTIMATE_LABEL
+from app.config import APP_VERSION, DEV_JWT_SECRET, ESTIMATE_LABEL, get_settings
 from app.schemas.base import as_utc
 from app.services import worker
 
@@ -57,6 +57,11 @@ TAGS = [
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    settings = get_settings()
+    if not settings.demo_mode and settings.jwt_secret == DEV_JWT_SECRET:
+        raise RuntimeError(
+            "DEMO_MODE is off but JWT_SECRET is the development default. Set a real secret in .env."
+        )
     stale = worker.mark_stale_runs()
     if stale:
         logging.getLogger("episim").warning("Marked %s stale runs as failed", stale)

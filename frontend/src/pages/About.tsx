@@ -50,7 +50,7 @@ const SECTIONS: Section[] = [
   items: [
   {
     label: 'Disease parameters',
-    text: 'Values come from published outbreak reviews and have not been reviewed for this system. Marburg is marked Provisional: few outbreaks have published data, and several values are borrowed or estimated. Each preset shows its reference.'
+    text: 'Values come from published outbreak reviews and have not been reviewed for this system. Both built-in presets are marked Provisional until an epidemiologist reviews them. Marburg has the weakest evidence: few outbreaks have published data, and several values are borrowed or estimated. Each preset shows its reference.'
   },
   {
     label: 'Intervention effect sizes',

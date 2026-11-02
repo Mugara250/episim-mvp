@@ -118,13 +118,16 @@ class SimulationWorker:
 
     def _execute(self, run_id: str) -> None:
         with dbmod.SessionLocal() as db:
-            run = db.get(SimulationRun, run_id)
-            if run is None or run.status != "queued":
-                return  # cancelled while queued
-            run.status = "running"
-            run.started_at = utcnow()
+            # Claim the run atomically so a cancel that lands between reading and writing is never lost.
+            claimed = db.execute(
+                update(SimulationRun)
+                .where(SimulationRun.id == run_id, SimulationRun.status == "queued")
+                .values(status="running", started_at=utcnow())
+            ).rowcount
             db.commit()
-            snapshot = dict(run.inputs_snapshot)
+            if not claimed:
+                return  # cancelled while queued, or already picked up
+            snapshot = dict(db.get(SimulationRun, run_id).inputs_snapshot)
         started = time.monotonic()
         last_progress = [0.0]
         last_cancel = [0.0, False]

@@ -24,9 +24,10 @@ export const simulationKeys = {
 const POLL_MS = 1000;
 const isActive = (r: SimulationRun) => r.status === 'queued' || r.status === 'running';
 
-export function useRunList() {
+export function useRunList(enabled = true) {
   return useQuery({
     queryKey: simulationKeys.all,
+    enabled,
     queryFn: async () => unwrap(await client.GET('/api/simulations', {})) as unknown as SimulationRun[],
     refetchInterval: (q) => (q.state.data ?? []).some(isActive) ? POLL_MS : false
   });

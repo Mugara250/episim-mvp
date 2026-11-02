@@ -157,6 +157,10 @@ docs/                     DECISIONS.md, API.md, backtest results, module documen
 - **Frontend tests:** there are no frontend unit tests. The UI is covered by the TypeScript typecheck and the
   optional `tools/e2e` browser script.
 - **Auth storage:** the demo stores the JWT in `localStorage`. Use httpOnly cookies before any real deployment.
+- **Demo mode is not for public servers.** With `DEMO_MODE=true` the role switcher (`POST /api/auth/demo-login`)
+  signs anyone in as any role, including admin, without a password. With `DEMO_MODE=false` the server refuses the
+  development JWT secret and demo accounts cannot sign in.
+- **Uploads:** CSV uploads are read into memory before the 50 MB limit is checked.
 
 ## Credits
 

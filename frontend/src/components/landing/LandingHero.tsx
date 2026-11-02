@@ -16,7 +16,7 @@ export function LandingHero({ onNavigate }: LandingHeroProps) {
           </div>
 
           <h1 className="text-[64px] sm:text-[96px] leading-[1] font-bold tracking-tight mb-12">
-            <span className="block text-white">Predict.</span>
+            <span className="block text-white">Explore.</span>
             <span className="block text-[#1FC7A5]">Prepare.</span>
             <span className="block text-white">Protect.</span>
           </h1>

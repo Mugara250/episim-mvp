@@ -224,7 +224,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AccessRequestStatusOut"
+         "$ref": "#/components/schemas/PublicRequestStatusOut"
         }
        }
       }
@@ -9289,6 +9289,38 @@
      "profileId"
     ],
     "title": "ProfileComparisonOut"
+   },
+   "PublicRequestStatusOut": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "submittedAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Submittedat"
+     },
+     "decidedAt": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decidedat"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "submittedAt"
+    ],
+    "title": "PublicRequestStatusOut",
+    "description": "What anyone who knows an email may learn: whether a request exists and where it stands.\nName, assigned role and rejection reason stay with administrators."
    },
    "RejectIn": {
     "properties": {

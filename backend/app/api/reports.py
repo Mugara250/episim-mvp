@@ -260,6 +260,14 @@ def create_report(
     return _out(db, r)
 
 
+def _only_author(r: Report, user: User) -> None:
+    # Keeps docs D10 meaningful: whoever approves a report cannot have written any of it.
+    if r.author_id and r.author_id != user.id:
+        raise HTTPException(
+            403, "Only the report's author can edit or submit it. Return it to draft with a comment instead."
+        )
+
+
 @router.put("/{rid}", response_model=ReportOut)
 def update_report(
     rid: str, body: ReportIn, db: Session = Depends(get_db), user: User = Depends(require("reports", "full"))
@@ -267,6 +275,7 @@ def update_report(
     r = _visible(db, rid, user)
     if r.status == "approved":
         raise HTTPException(409, "Approved reports are locked. Create a new draft instead.")
+    _only_author(r, user)
     _apply(db, r, body, user)
     r.status = "draft"
     audit(db, user, "Report edited", r.title, r.id)
@@ -277,6 +286,7 @@ def update_report(
 @router.post("/{rid}/submit", response_model=ReportOut)
 def submit_report(rid: str, db: Session = Depends(get_db), user: User = Depends(require("reports", "full"))):
     r = _visible(db, rid, user)
+    _only_author(r, user)
     if r.status != "draft":
         raise HTTPException(409, "Only drafts can be submitted for approval.")
     r.status = "pending_approval"

@@ -16,9 +16,9 @@ export function LandingFooter() {
         <div className="col-span-2 md:col-span-5">
           <LandingLogo />
           <p className="text-[11px] text-slate-400 leading-[1.9] max-w-[260px] mt-5">
-            AI-driven epidemic simulation for public health authorities in
-            developing countries. Built to protect communities before outbreaks
-            become crises.
+            Epidemic scenario simulation for health decision-makers in Rwanda.
+            An early demonstration: results are scenario estimates, not
+            forecasts.
           </p>
           <div className="flex gap-2 mt-6">
             {socials.map((s) =>

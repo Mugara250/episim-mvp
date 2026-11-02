@@ -90,7 +90,7 @@ export function Login({ onNavigate }: LoginProps) {
         return;
       }
       if (request?.status === 'Rejected') {
-        setError(`Your account request was declined: ${request.rejectionReason ?? 'details could not be verified.'}`);
+        setError(request.rejectionReason ? `Your account request was declined: ${request.rejectionReason}` : 'Your account request was not approved. Contact your institution’s focal point for details.');
         return;
       }
       if (e instanceof ApiError && (e.status === 401 || e.status === 400 || e.status === 404)) {

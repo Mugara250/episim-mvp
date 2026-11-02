@@ -389,7 +389,7 @@ export function AdminSettings() {
                   defaultChecked
                   className="mr-3 rounded text-primary focus:ring-primary w-4 h-4" />
                 {' '}
-                  Send alerts on healthcare capacity breach forecasts
+                  Send alerts when a scenario estimate exceeds healthcare capacity
                 </label>
               </div>
             </div>

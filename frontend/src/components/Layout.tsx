@@ -36,6 +36,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDemoMode, useMeta } from '../api/meta';
 import { DemoRibbon } from './common/DemoRibbon';
+import { useRunList } from '../api/simulations';
+
+function timeAgo(iso?: string | null) {
+  if (!iso) return '';
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (min < 60) return `${min}m ago`;
+  if (min < 60 * 24) return `${Math.round(min / 60)}h ago`;
+  return `${Math.round(min / 1440)}d ago`;
+}
 import {
   hasAccess,
   ROLE_LABELS,
@@ -111,68 +120,24 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
     setUserName(profileForm.name.trim() || userName);
     setShowProfileModal(false);
   };
-  const [notifications, setNotifications] = useState([
-  {
-    id: 1,
-    title: 'Simulation SIM-0042 completed',
-    description:
-    'Stochastic SEIHFR run for Ebola in Rubavu has finished (200 runs).',
-    time: '2m ago',
-    read: false
-  },
-  {
-    id: 2,
-    title: 'ICU capacity threshold exceeded',
-    description:
-    'Forecasted ICU demand in Western Province exceeds 90% capacity.',
-    time: '1h ago',
-    read: false
-  },
-  {
-    id: 3,
-    title: 'New scenario comparison ready',
-    description: 'Safe Burials vs Baseline comparison for Ebola is now available.',
-    time: '3h ago',
-    read: true
-  },
-  {
-    id: 4,
-    title: 'Weekly surveillance report generated',
-    description:
-    'The national epidemiological summary for Week 12 is ready for review.',
-    time: '1d ago',
-    read: true
-  },
-  {
-    id: 5,
-    title: 'User access request pending',
-    description:
-    'Dr. Murekatete has requested access to the Health-Worker Layer.',
-    time: '2d ago',
-    read: true
-  }]
-  );
+  // Notifications are the user's real recent simulation runs (finished, failed or cancelled).
+  // Read state is kept in memory for this session only.
+  const runsQ = useRunList(hasAccess(role, 'simulation'));
+  const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
+  const notifications = (runsQ.data ?? []).
+  filter((r) => r.status === 'completed' || r.status === 'failed' || r.status === 'cancelled').
+  sort((a, b) => (b.completedAt ?? b.queuedAt ?? '').localeCompare(a.completedAt ?? a.queuedAt ?? '')).
+  slice(0, 5).
+  map((r) => ({
+    id: r.id,
+    title: `Simulation ${r.id} ${r.status}`,
+    description: `${r.scenarioName}${r.status === 'completed' ? ' · scenario estimates, not forecasts' : ''}`,
+    time: timeAgo(r.completedAt ?? r.queuedAt),
+    read: readIds.has(r.id)
+  }));
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const markAllAsRead = () => {
-    setNotifications(
-      notifications.map((n) => ({
-        ...n,
-        read: true
-      }))
-    );
-  };
-  const markAsRead = (id: number) => {
-    setNotifications(
-      notifications.map((n) =>
-      n.id === id ?
-      {
-        ...n,
-        read: true
-      } :
-      n
-      )
-    );
-  };
+  const markAllAsRead = () => setReadIds(new Set(notifications.map((n) => n.id)));
+  const markAsRead = (id: string) => setReadIds((prev) => new Set(prev).add(id));
   const navItems: NavGroup[] = [
   {
     id: '/dashboard',
@@ -598,6 +563,7 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
                         onClick={() => {
                           markAsRead(notification.id);
                           setShowNotifications(false);
+                          navigate(`/simulation/runs/${notification.id}`);
                         }}>
                         
                               <div className="flex justify-between items-start mb-1">

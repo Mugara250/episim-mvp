@@ -82,14 +82,15 @@ export function AccountRequestProvider({ children }: {children: ReactNode;}) {
     };
     saveMine(stored);
     setMine(stored);
-    return mergeStatus(stored, { ...res, name: stored.name, status: 'Pending' });
+    return mergeStatus(stored, { status: 'Pending', submittedAt: res.submittedAt });
   };
 
   const lookupRequest = async (email: string) => {
     const s = await fetchRequestStatus(email);
     if (!s) return undefined;
     return mergeStatus(
-      { id: s.id, name: s.name, email: s.email, institution: '', institutionAccountId: '', position: '', submittedAt: s.submittedAt },
+      // The public lookup returns only the status; the email is the one the person typed.
+      { id: '', name: '', email: email.trim().toLowerCase(), institution: '', institutionAccountId: '', position: '', submittedAt: s.submittedAt },
       s
     );
   };

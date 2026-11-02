@@ -3345,6 +3345,22 @@ export interface components {
             /** Profileid */
             profileId: string;
         };
+        /**
+         * PublicRequestStatusOut
+         * @description What anyone who knows an email may learn: whether a request exists and where it stands.
+         *     Name, assigned role and rejection reason stay with administrators.
+         */
+        PublicRequestStatusOut: {
+            /** Status */
+            status: string;
+            /**
+             * Submittedat
+             * Format: date-time
+             */
+            submittedAt: string;
+            /** Decidedat */
+            decidedAt?: string | null;
+        };
         /** RejectIn */
         RejectIn: {
             /** Reason */
@@ -4203,7 +4219,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessRequestStatusOut"];
+                    "application/json": components["schemas"]["PublicRequestStatusOut"];
                 };
             };
             /** @description Validation Error */

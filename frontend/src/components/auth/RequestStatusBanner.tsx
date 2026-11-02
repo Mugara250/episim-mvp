@@ -46,7 +46,7 @@ export function RequestStatusBanner({ request, onUseEmail }: RequestStatusBanner
         }
         {request.status === 'Rejected' &&
         <p className="text-[12px] text-text-secondary mt-0.5 leading-relaxed">
-            {request.rejectionReason || 'The administrator could not verify your details.'} Contact your institution’s focal point if you think this is a mistake.
+            {request.rejectionReason || 'The administrator did not approve this request.'} Contact your institution’s focal point if you think this is a mistake.
           </p>
         }
       </div>

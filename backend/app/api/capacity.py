@@ -103,7 +103,10 @@ def _out(db: Session, p: CapacityProfile, user: User) -> CapacityOut:
 
 @router.get("/capacity-profiles", response_model=list[CapacityOut])
 def list_profiles(db: Session = Depends(get_db), user: User = Depends(require("capacity"))):
-    return [_out(db, p, user) for p in db.scalars(select(CapacityProfile).order_by(CapacityProfile.name))]
+    q = select(CapacityProfile).order_by(CapacityProfile.name)
+    if user.role == "officer":  # rbac.ts: officers manage their own institution's profiles only
+        q = q.where(CapacityProfile.institution_id == user.institution_id)
+    return [_out(db, p, user) for p in db.scalars(q)]
 
 
 @router.get("/capacity-profiles/options", response_model=list[CapacityOption])
@@ -131,7 +134,7 @@ def profile_options(db: Session = Depends(get_db), user: User = Depends(current_
 @router.get("/capacity-profiles/{profile_id}", response_model=CapacityOut)
 def get_profile(profile_id: str, db: Session = Depends(get_db), user: User = Depends(require("capacity"))):
     p = db.get(CapacityProfile, profile_id)
-    if p is None:
+    if p is None or (user.role == "officer" and p.institution_id != user.institution_id):
         raise HTTPException(404, "Capacity profile not found.")
     return _out(db, p, user)
 

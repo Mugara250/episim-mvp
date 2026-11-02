@@ -119,6 +119,9 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
             status.HTTP_401_UNAUTHORIZED,
             "No account found with that email. Request an account or try one of the demo accounts.",
         )
+    if user.is_demo and not get_settings().demo_mode:
+        # Demo accounts have published passwords; they only work while DEMO_MODE is on.
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Demo accounts are turned off outside demo mode.")
     if not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect password for this account.")
     if user.status != "Active":
@@ -175,6 +178,15 @@ class AccessRequestStatusOut(CamelModel):
     rejection_reason: str | None = None
 
 
+class PublicRequestStatusOut(CamelModel):
+    """What anyone who knows an email may learn: whether a request exists and where it stands.
+    Name, assigned role and rejection reason stay with administrators."""
+
+    status: str
+    submitted_at: datetime
+    decided_at: datetime | None = None
+
+
 @router.post("/access-requests", response_model=AccessRequestStatusOut, status_code=201, tags=["auth"])
 def request_account(body: AccessRequestIn, db: Session = Depends(get_db)):
     """Public: request an account. An administrator approves it and assigns the role (docs D11)."""
@@ -207,7 +219,7 @@ def request_account(body: AccessRequestIn, db: Session = Depends(get_db)):
     return AccessRequestStatusOut.model_validate(req)
 
 
-@router.get("/access-requests/status", response_model=AccessRequestStatusOut, tags=["auth"])
+@router.get("/access-requests/status", response_model=PublicRequestStatusOut, tags=["auth"])
 def request_status(email: str, db: Session = Depends(get_db)):
     req = db.scalar(
         select(AccessRequest)
@@ -216,4 +228,4 @@ def request_status(email: str, db: Session = Depends(get_db)):
     )
     if req is None:
         raise HTTPException(404, "No request found for that email.")
-    return AccessRequestStatusOut.model_validate(req)
+    return PublicRequestStatusOut.model_validate(req)
