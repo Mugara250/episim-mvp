@@ -1,0 +1,90 @@
+import { CapacityProfile, Institution, ProfileComparison } from '../types/capacity';
+
+/** Institutions registered in EpiSim (hospitals match the Admin › Hospitals list). */
+export const institutions: Institution[] = [
+{ id: 'R-KGL', name: 'Kigali City', kind: 'Region' },
+{ id: 'R-WST', name: 'Western Province', kind: 'Region' },
+{ id: 'H-01', name: 'Gisenyi District Hospital', kind: 'District hospital catchment' },
+{ id: 'H-02', name: 'Kibagabaga District Hospital', kind: 'District hospital catchment' },
+{ id: 'H-03', name: 'Masaka District Hospital', kind: 'District hospital catchment' },
+{ id: 'H-04', name: 'Ruhengeri Referral Hospital', kind: 'Referral hospital' },
+{ id: 'H-05', name: 'Kibuye Referral Hospital', kind: 'Referral hospital' }];
+
+
+/** The demo Public Health Officer (Dr. Robert K.) works at Gisenyi District Hospital. */
+export const OFFICER_INSTITUTION_ID = 'H-01';
+
+// All numbers are illustrative placeholders, not official figures.
+export const capacityProfiles: CapacityProfile[] = [
+{
+  id: 'cap-kigali-2026',
+  name: 'Kigali Region - 2026',
+  institutionId: 'R-KGL',
+  hospitalBeds: 2400,
+  icuBeds: 64,
+  ventilators: 52,
+  healthWorkers: 6800,
+  testsPerDay: 3500,
+  vaccineDoses: 20000,
+  sourceNote: 'Placeholder. Replace with Ministry of Health facility inventory, as of Q3 2026.',
+  updated: '02 Oct 2026',
+  updatedBy: 'Grace Mukamana',
+  placeholder: true
+},
+{
+  id: 'cap-gisenyi-2026',
+  name: 'Gisenyi catchment - 2026',
+  institutionId: 'H-01',
+  hospitalBeds: 260,
+  icuBeds: 8,
+  ventilators: 6,
+  healthWorkers: 410,
+  testsPerDay: 180,
+  vaccineDoses: null,
+  sourceNote: 'Placeholder. Hospital bed register and HR roster, as of 30 Sep 2026.',
+  updated: '30 Sep 2026',
+  updatedBy: 'Dr. Robert K.',
+  placeholder: true
+},
+{
+  id: 'cap-ruhengeri-2026',
+  name: 'Ruhengeri Referral - 2026',
+  institutionId: 'H-04',
+  hospitalBeds: 480,
+  icuBeds: 18,
+  ventilators: 14,
+  healthWorkers: 720,
+  testsPerDay: 300,
+  vaccineDoses: 5000,
+  sourceNote: '',
+  updated: '21 Sep 2026',
+  updatedBy: 'Claude Nshimiyimana',
+  placeholder: true
+},
+{
+  id: 'cap-kibagabaga-2026',
+  name: 'Kibagabaga catchment - 2026',
+  institutionId: 'H-02',
+  hospitalBeds: 220,
+  icuBeds: 6,
+  ventilators: 5,
+  healthWorkers: 360,
+  testsPerDay: 150,
+  vaccineDoses: null,
+  sourceNote: 'Placeholder. District health office return, as of Aug 2026.',
+  updated: '14 Aug 2026',
+  updatedBy: 'Grace Mukamana',
+  placeholder: true
+}];
+
+
+export const profileComparisons: ProfileComparison[] = [
+{ id: 'CMP-031', name: 'Ebola Rubavu · isolation options', runs: 3, date: '07 Oct 2026', profileId: 'cap-gisenyi-2026' },
+{ id: 'CMP-029', name: 'Ebola Rubavu · safe burials vs baseline', runs: 2, date: '06 Oct 2026', profileId: 'cap-gisenyi-2026' },
+{ id: 'CMP-028', name: 'Marburg Kigali · health-worker protection', runs: 3, date: '06 Oct 2026', profileId: 'cap-kigali-2026' },
+{ id: 'CMP-024', name: 'Ebola Gasabo · bed stress test', runs: 4, date: '29 Sep 2026', profileId: 'cap-kigali-2026' },
+{ id: 'CMP-019', name: 'Marburg Musanze · referral surge', runs: 2, date: '22 Sep 2026', profileId: 'cap-ruhengeri-2026' }];
+
+
+/** Example peak demand from one illustrative Ebola outbreak, used only in the gap preview. */
+export const EXAMPLE_PEAK = { hospitalBeds: 310, icuBeds: 22, testsPerDay: 260 };
