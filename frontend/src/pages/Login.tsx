@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Activity, ArrowLeft, Eye, EyeOff, AlertCircle, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccountRequests } from '../context/AccountRequestContext';
 import { RequestStatusBanner } from '../components/auth/RequestStatusBanner';
 import { Role } from '../lib/rbac';
+import { ApiError } from '../api/http';
+import { useLocation, useNavigate } from 'react-router-dom';
 interface LoginProps {
   onNavigate: (route: string) => void;
 }
@@ -43,7 +45,12 @@ const DEMO_USERS: Record<
   }
 };
 export function Login({ onNavigate }: LoginProps) {
-  const { setRole, setUserName } = useAuth();
+  const { login, demoLogin, setUserName } = useAuth();
+  const navigate = useNavigate();
+  // Deep link the user tried to open before signing in (e.g. a shared comparison).
+  const from = (useLocation().state as {from?: string;} | null)?.from;
+  const toMfa = () => navigate('/mfa', { state: from ? { from } : undefined });
+  const [submitting, setSubmitting] = useState(false);
   const { myRequest, findByEmail } = useAccountRequests();
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoCreds, setShowDemoCreds] = useState(true);
@@ -61,11 +68,21 @@ export function Login({ onNavigate }: LoginProps) {
   'UNICEF',
   'Other'];
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
+    if (submitting) return;
     setError(null);
     const emailKey = formData.email.trim().toLowerCase();
-    const user = DEMO_USERS[emailKey];
-    if (!user) {
+    if (!emailKey || !formData.password) {
+      setError('Enter your email address and password.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await login(emailKey, formData.password);
+      toMfa();
+      return;
+    } catch (e) {
+      // Fall through to the access-request checks below before showing the server's message.
       const request = findByEmail(emailKey);
       if (request?.status === 'Pending') {
         setError('Your account request is still awaiting administrator approval. You’ll be notified once it’s approved.');
@@ -80,23 +97,28 @@ export function Login({ onNavigate }: LoginProps) {
           setError('Incorrect password for this account.');
           return;
         }
-        setRole(request.assignedRole);
-        setUserName(request.name);
-        onNavigate('/mfa');
+        // Accounts approved in this browser session sign in as the demo user for their assigned role.
+        try {
+          await demoLogin(request.assignedRole);
+          setUserName(request.name);
+          toMfa();
+        } catch (err) {
+          setError(err instanceof ApiError ? err.message : 'Could not sign in. Check that the EpiSim server is running.');
+        }
         return;
       }
-      setError(
-        'No account found with that email. Request an account or try one of the demo accounts above.'
-      );
-      return;
+      if (e instanceof ApiError && (e.status === 401 || e.status === 400 || e.status === 404)) {
+        setError(
+          DEMO_USERS[emailKey] ?
+          'Incorrect password for this account.' :
+          'No account found with that email and password. Request an account or try one of the demo accounts above.'
+        );
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not reach the EpiSim server. Check that the backend is running.');
+      }
+    } finally {
+      setSubmitting(false);
     }
-    if (user.password !== formData.password) {
-      setError('Incorrect password for this account.');
-      return;
-    }
-    setRole(user.role);
-    setUserName(user.name);
-    onNavigate('/mfa');
   };
   const quickFill = (email: string) => {
     const user = DEMO_USERS[email];
@@ -318,9 +340,10 @@ export function Login({ onNavigate }: LoginProps) {
           {/* Sign In Button */}
           <button
             onClick={handleSignIn}
-            className="w-full bg-primary hover:bg-primary-dark text-white py-3.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-primary/20">
+            disabled={submitting}
+            className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white py-3.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-primary/20">
             
-            Sign In
+            {submitting ? 'Signing in…' : 'Sign In'}
           </button>
 
           {/* Register Link */}

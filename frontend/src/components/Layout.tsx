@@ -1,9 +1,9 @@
-import React, { useState, Children, Component } from 'react';
+import React, { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   LayoutDashboard,
   Database,
-  FlaskConical,
   Cpu,
   ShieldAlert,
   Map,
@@ -25,19 +25,20 @@ import {
   Check,
   X,
   User,
-  GitBranch,
   HardHat,
   TrendingUp,
-  ClipboardCheck,
   ListChecks,
   Dna,
-  Layers } from
+  Layers,
+  Info } from
 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDemoMode, useMeta } from '../api/meta';
+import { DemoRibbon } from './common/DemoRibbon';
 import {
   hasAccess,
   ROLE_LABELS,
-  ROLE_DEMO_NAMES,
   ROLES,
   ROUTE_MODULES,
   ModuleId,
@@ -51,30 +52,34 @@ interface LayoutProps {
 interface NavChild {
   id: string;
   label: string;
-  icon: ComponentType<{
-    size?: number;
-    className?: string;
-  }>;
+  icon: LucideIcon;
   moduleId: ModuleId;
 }
 interface NavGroup {
   id: string;
   label: string;
-  icon: ComponentType<{
-    size?: number;
-    className?: string;
-  }>;
+  icon: LucideIcon;
   moduleId?: ModuleId;
   children?: NavChild[];
 }
 export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
-  const { role, setRole, userName, setUserName } = useAuth();
+  const { role, user, demoLogin, logout, userName, setUserName } = useAuth();
+  const demoMode = useDemoMode();
+  const { data: meta } = useMeta();
+  const navigate = useNavigate();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
-  const switchRole = (next: Role) => {
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  // Demo only: switching role signs in as that role's seeded demo user (a real token swap).
+  const switchRole = async (next: Role) => {
     setShowRoleMenu(false);
     if (next === role) return;
-    setRole(next);
-    setUserName(ROLE_DEMO_NAMES[next]);
+    setSwitchError(null);
+    try {
+      await demoLogin(next);
+    } catch (e) {
+      setSwitchError(e instanceof Error ? e.message : 'Could not switch role.');
+      return;
+    }
     if (next === 'admin') {
       onNavigate('/admin/users');
       return;
@@ -82,13 +87,17 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
     const moduleId = ROUTE_MODULES[currentRoute];
     if (moduleId && !hasAccess(next, moduleId)) onNavigate('/dashboard');
   };
+  const signOut = async () => {
+    await logout();
+    navigate('/login');
+  };
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: userName,
-    email: 'dr.icyeza@episim.gov.rw',
-    organization: 'Rwanda Biomedical Centre'
+    email: user?.email ?? '',
+    organization: user?.institutionName ?? ''
   });
   const openProfile = () => {
     setProfileForm((prev) => ({
@@ -507,7 +516,14 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
             Settings
           </button>
           <button
-            onClick={() => onNavigate('/login')}
+            onClick={() => onNavigate('/about')}
+            className="w-full flex items-center px-3 py-2.5 rounded-lg border border-transparent text-dark-text-secondary hover:bg-white/5 hover:text-white text-[13px] transition-colors">
+            
+            <Info size={18} className="mr-3" />
+            About this demo
+          </button>
+          <button
+            onClick={signOut}
             className="w-full flex items-center px-3 py-2.5 rounded-lg text-dark-text-secondary hover:bg-white/5 hover:text-white text-[13px] transition-colors">
             
             <LogOut size={18} className="mr-3" />
@@ -518,15 +534,16 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <DemoRibbon />
         {/* Top Navigation */}
         <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-8 flex-shrink-0 relative z-40">
           <div className="flex items-center">
-            <div className="w-2 h-2 rounded-full bg-success mr-2"></div>
+            <div className={`w-2 h-2 rounded-full mr-2 ${meta ? 'bg-success' : 'bg-danger'}`}></div>
             <span className="text-secondary text-text-primary font-medium mr-2">
-              System Online
+              {meta ? 'System Online' : 'Server Offline'}
             </span>
             <span className="text-secondary text-text-secondary font-code">
-              | v2.4.1-stable
+              {meta ? `| v${meta.appVersion} · engine ${meta.engineVersion}` : ''}
             </span>
           </div>
 
@@ -613,6 +630,7 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
               <div className="relative">
                 <button
                   onClick={() => {
+                    if (!demoMode) return;
                     setShowRoleMenu(!showRoleMenu);
                     setShowProfileMenu(false);
                     setShowNotifications(false);
@@ -625,9 +643,14 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
                   <span className="text-[12px] font-medium whitespace-nowrap">
                     {ROLE_LABELS[role]}
                   </span>
-                  <ChevronDown size={12} className="ml-1.5" />
+                  {demoMode && <ChevronDown size={12} className="ml-1.5" />}
                 </button>
-                {showRoleMenu &&
+                {switchError &&
+                <div role="alert" className="absolute right-0 top-full mt-2 w-64 bg-surface rounded-xl border border-danger/30 shadow-lg z-50 p-3 text-[12px] text-danger">
+                    {switchError}
+                  </div>
+                }
+                {demoMode && showRoleMenu &&
                 <>
                     <div
                     className="fixed inset-0 z-40"
@@ -689,7 +712,7 @@ export function Layout({ children, currentRoute, onNavigate }: LayoutProps) {
                     <button
                     onClick={() => {
                       setShowProfileMenu(false);
-                      onNavigate('/login');
+                      signOut();
                     }}
                     className="w-full text-left px-4 py-2.5 text-[13px] text-accent hover:bg-accent/10 flex items-center transition-colors">
                     

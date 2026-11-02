@@ -1,4 +1,8 @@
-import React, { useState, ComponentType } from 'react';
+import React, { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { DemoRibbon } from '../common/DemoRibbon';
+import { useDemoMode } from '../../api/meta';
 import {
   Users,
   ShieldCheck,
@@ -16,12 +20,13 @@ import {
   User,
   UserCog,
   MonitorCheck,
-  MessagesSquare } from
+  MessagesSquare,
+  Info } from
 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccountRequests } from '../../context/AccountRequestContext';
 import { timeAgo } from '../../utils/accountRequests';
-import { ROLES, ROLE_LABELS, ROLE_DEMO_NAMES, Role } from '../../lib/rbac';
+import { ROLES, ROLE_LABELS, Role } from '../../lib/rbac';
 import { AdminScopeNote } from './AdminScopeNote';
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -31,18 +36,12 @@ interface AdminLayoutProps {
 interface NavChild {
   id: string;
   label: string;
-  icon: ComponentType<{
-    size?: number;
-    className?: string;
-  }>;
+  icon: LucideIcon;
 }
 interface NavGroup {
   id: string;
   label: string;
-  icon: ComponentType<{
-    size?: number;
-    className?: string;
-  }>;
+  icon: LucideIcon;
   children?: NavChild[];
 }
 export function AdminLayout({
@@ -50,9 +49,10 @@ export function AdminLayout({
   currentRoute,
   onNavigate
 }: AdminLayoutProps) {
-  const { userName, setRole } = useAuth();
+  const { userName, role, demoLogin, logout } = useAuth();
+  const demoMode = useDemoMode();
+  const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const { setUserName, role } = useAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const { requests, unseenCount, pendingCount } = useAccountRequests();
@@ -60,9 +60,16 @@ export function AdminLayout({
   const switchRole = (next: Role) => {
     setShowRoleMenu(false);
     if (next === role) return;
-    setRole(next);
-    setUserName(ROLE_DEMO_NAMES[next]);
-    if (next !== 'admin') onNavigate('/dashboard');
+    // Demo only: signs in as that role's seeded demo user (a real token swap).
+    demoLogin(next).
+    then(() => {
+      if (next !== 'admin') onNavigate('/dashboard');
+    }).
+    catch(() => undefined);
+  };
+  const signOut = async () => {
+    await logout();
+    navigate('/login');
   };
   const navItems: NavGroup[] = [
   {
@@ -240,10 +247,14 @@ export function AdminLayout({
 
         <div className="p-4 border-t border-white/10">
           <button
-            onClick={() => {
-              setRole('analyst');
-              onNavigate('/login');
-            }}
+            onClick={() => onNavigate('/about')}
+            className="w-full flex items-center px-3 py-2 rounded-md text-dark-text-secondary hover:bg-white/5 hover:text-white text-[13px] transition-colors">
+            
+            <Info size={16} className="mr-3 text-dark-text-secondary" />
+            About this demo
+          </button>
+          <button
+            onClick={signOut}
             className="w-full flex items-center px-3 py-2 rounded-md text-dark-text-secondary hover:bg-white/5 hover:text-white text-[13px] transition-colors">
             
             <LogOut size={16} className="mr-3 text-dark-text-secondary" />
@@ -254,6 +265,7 @@ export function AdminLayout({
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <DemoRibbon />
         {/* Top Navigation */}
         <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-8 flex-shrink-0 z-10">
           <div className="flex items-center">
@@ -334,15 +346,15 @@ export function AdminLayout({
 
             <div className="relative">
               <button
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
+                onClick={() => demoMode && setShowRoleMenu(!showRoleMenu)}
                 aria-haspopup="menu"
                 aria-expanded={showRoleMenu}
                 className="flex items-center px-3 py-1.5 rounded-full border border-border bg-background text-[12px] font-medium text-text-primary hover:border-primary/40 transition-colors">
                 
                 {ROLE_LABELS[role]}
-                <ChevronDown size={13} className="ml-1.5 text-text-secondary" />
+                {demoMode && <ChevronDown size={13} className="ml-1.5 text-text-secondary" />}
               </button>
-              {showRoleMenu &&
+              {demoMode && showRoleMenu &&
               <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowRoleMenu(false)}></div>
                   <div role="menu" className="absolute right-0 top-full mt-1 w-52 bg-surface rounded-lg border border-border shadow-lg z-50 py-1">
@@ -396,7 +408,7 @@ export function AdminLayout({
                     <button
                     onClick={() => {
                       setShowProfileMenu(false);
-                      onNavigate('/login');
+                      signOut();
                     }}
                     className="w-full text-left px-4 py-2 text-[13px] text-accent hover:bg-accent/10 flex items-center">
                     

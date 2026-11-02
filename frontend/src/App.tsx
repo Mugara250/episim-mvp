@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { useScreenInit } from './useScreenInit.js';
+import { ReactNode, useCallback } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { queryClient } from './api/queryClient';
 import { Layout } from './components/Layout';
+import { DemoRibbon } from './components/common/DemoRibbon';
 import { Dashboard } from './pages/Dashboard';
 import { Landing } from './pages/Landing';
 import { MFA } from './pages/MFA';
@@ -17,7 +20,7 @@ import { Interventions } from './pages/Interventions';
 import { Geographic } from './pages/Geographic';
 import { CapacityProfiles } from './pages/CapacityProfiles';
 import { Scenarios } from './pages/Scenarios';
-import { hasAccess } from './lib/rbac';
+import { hasAccess, ModuleId, ROUTE_MODULES } from './lib/rbac';
 import { ScenarioComparison } from './pages/ScenarioComparison';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
@@ -49,184 +52,229 @@ import { AdminSystemHealth } from './pages/admin/AdminSystemHealth';
 import { AdminAnnouncements } from './pages/admin/AdminAnnouncements';
 import { AdminSupportTickets } from './pages/admin/AdminSupportTickets';
 import { AdminSettings } from './pages/admin/AdminSettings';
-const ADMIN_ROUTES = [
-'/admin/users',
-'/admin/roles',
-'/admin/hospitals',
-'/admin/requests',
-'/admin/audit',
-'/admin/health',
-'/admin/announcements',
-'/admin/tickets',
-'/admin/settings'];
+import { About } from './pages/About';
+import { RunResults } from './pages/RunResults';
 
-function AppRoutes({ canEditBuiltIns }: {canEditBuiltIns: boolean;}) {
-  const screenInit = useScreenInit();
-  // Simple state-based routing for the prototype
-  const [currentRoute, setCurrentRoute] = useState(
-    screenInit.currentRoute ?? '/'
+// Editing built-in presets and intervention types needs an elevated permission the
+// server does not grant to the demo users, so the UI keeps those read-only.
+const CAN_EDIT_BUILT_INS = false;
+
+const ADMIN_PAGES: Record<string, () => JSX.Element> = {
+  '/admin/users': AdminUserManagement,
+  '/admin/roles': AdminRolesPermissions,
+  '/admin/hospitals': AdminHospitals,
+  '/admin/requests': AdminAccessRequests,
+  '/admin/audit': AdminAuditLogs,
+  '/admin/health': AdminSystemHealth,
+  '/admin/announcements': AdminAnnouncements,
+  '/admin/tickets': AdminSupportTickets,
+  '/admin/settings': AdminSettings
+};
+
+/**
+ * Pages still take the prototype's `onNavigate(route, reportId?)` prop. This shim maps it onto
+ * React Router so page files keep working unchanged; new code should use useNavigate or <Link>.
+ */
+export function useAppNavigate() {
+  const navigate = useNavigate();
+  return useCallback(
+    (route: string, reportId?: string) => navigate(route === '/reports' && reportId ? `/reports/${encodeURIComponent(reportId)}` : route),
+    [navigate]
   );
-  const [focusedReportId, setFocusedReportId] = useState<string | null>(null);
+}
+
+/** The sidebar entry a URL belongs to (detail pages highlight their parent). */
+function navRouteFor(pathname: string) {
+  if (pathname === '/population/import') return '/population';
+  if (pathname.startsWith('/simulation/')) return '/simulation';
+  if (pathname.startsWith('/reports/')) return '/reports';
+  return pathname;
+}
+
+function moduleFor(pathname: string): ModuleId | undefined {
+  return ROUTE_MODULES[navRouteFor(pathname)];
+}
+
+function FullPageMessage({ children }: {children: ReactNode;}) {
+  return <div className="min-h-screen flex items-center justify-center bg-background text-body text-text-secondary">{children}</div>;
+}
+
+function Standalone({ children }: {children: ReactNode;}) {
+  return (
+    <>
+      <DemoRibbon />
+      {children}
+    </>);
+
+}
+
+function RequireAuth({ children }: {children: ReactNode;}) {
+  const { status } = useAuth();
+  const location = useLocation();
+  if (status === 'loading') return <FullPageMessage>Signing you in…</FullPageMessage>;
+  if (status === 'anonymous') return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  return <>{children}</>;
+}
+
+function NoAccess({ title, text }: {title: string;text: string;}) {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary">
+      <h2 className="text-h2 text-text-primary mb-2">{title}</h2>
+      <p className="text-body max-w-md">{text}</p>
+      <button onClick={() => navigate('/dashboard')} className="mt-6 text-primary hover:underline text-[13px] font-semibold">
+        Return to Dashboard
+      </button>
+    </div>);
+
+}
+
+function UnderConstruction() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-text-secondary">
+      <h2 className="text-h2 mb-2">Under Construction</h2>
+      <p className="text-body">This module is currently being built.</p>
+      <button onClick={() => navigate('/dashboard')} className="mt-6 text-primary hover:underline text-[13px] font-semibold">
+        Return to Dashboard
+      </button>
+    </div>);
+
+}
+
+function ReportsPage() {
   const { role } = useAuth();
+  const { reportId } = useParams();
+  if (role === 'analyst') return <AnalystReports />;
+  if (role === 'officer') return <OfficerReports />;
+  if (role === 'policymaker') return <PolicyReports />;
+  return <Reports focusedReportId={reportId ?? null} />;
+}
+
+function AdminArea() {
+  const { role } = useAuth();
+  const { pathname } = useLocation();
+  const onNavigate = useAppNavigate();
+  if (role !== 'admin') return <Navigate to="/dashboard" replace />;
+  const Page = ADMIN_PAGES[pathname];
+  if (!Page) return <Navigate to="/admin/users" replace />;
+  return (
+    <AdminLayout onNavigate={onNavigate} currentRoute={pathname}>
+      <Page />
+    </AdminLayout>);
+
+}
+
+function MainArea() {
+  const { role } = useAuth();
+  const { pathname } = useLocation();
+  const onNavigate = useAppNavigate();
+  // The administrator works only in the admin area.
+  if (role === 'admin') return <Navigate to="/admin/users" replace />;
   const isAnalyst = role === 'analyst';
   const isOfficer = role === 'officer';
   const isPolicy = role === 'policymaker';
-  const handleNavigate = (route: string, reportId?: string) => {
-    setFocusedReportId(reportId ?? null);
-    setCurrentRoute(route);
-  };
-  // Standalone pages without the main layout shell
-  if (currentRoute === '/') return <Landing onNavigate={setCurrentRoute} />;
-  if (currentRoute === '/login') return <Login onNavigate={setCurrentRoute} />;
-  if (currentRoute === '/request-account' || currentRoute === '/register')
-  return <RequestAccount onNavigate={setCurrentRoute} />;
-  if (currentRoute === '/forgot')
-  return <ForgotPassword onNavigate={setCurrentRoute} />;
-  if (currentRoute === '/mfa') return <MFA onNavigate={setCurrentRoute} />;
-  // Admin Application (admin sees only the admin area)
-  if (currentRoute.startsWith('/admin') || role === 'admin') {
-    const adminRoute = ADMIN_ROUTES.includes(currentRoute) ?
-    currentRoute :
-    '/admin/users';
-    return (
-      <AdminLayout onNavigate={setCurrentRoute} currentRoute={adminRoute}>
-        {adminRoute === '/admin/users' && <AdminUserManagement />}
-        {adminRoute === '/admin/roles' && <AdminRolesPermissions />}
-        {adminRoute === '/admin/hospitals' && <AdminHospitals />}
-        {adminRoute === '/admin/requests' && <AdminAccessRequests />}
-        {adminRoute === '/admin/audit' && <AdminAuditLogs />}
-        {adminRoute === '/admin/health' && <AdminSystemHealth />}
-        {adminRoute === '/admin/announcements' && <AdminAnnouncements />}
-        {adminRoute === '/admin/tickets' && <AdminSupportTickets />}
-        {adminRoute === '/admin/settings' && <AdminSettings />}
-      </AdminLayout>);
+  const moduleId = moduleFor(pathname);
+  // /healthcare picks its page by role below, so it is not blocked here.
+  const blocked = moduleId && pathname !== '/healthcare' && !hasAccess(role, moduleId);
 
-  }
-  // Pages wrapped in the main application layout
   return (
-    <Layout
-      onNavigate={setCurrentRoute}
-      currentRoute={currentRoute === '/population/import' ? '/population' : currentRoute}>
-      
-      {currentRoute === '/dashboard' && (
-      isAnalyst ?
-      <AnalystDashboard onNavigate={setCurrentRoute} /> :
-      isOfficer ?
-      <OfficerDashboard onNavigate={setCurrentRoute} /> :
-      isPolicy ?
-      <PolicyDashboard onNavigate={setCurrentRoute} /> :
+    <Layout onNavigate={onNavigate} currentRoute={navRouteFor(pathname)}>
+      {blocked ?
+      <NoAccess title="This page isn’t available to your role" text="Your role doesn’t include access to this module. Ask an administrator if you think you need it." /> :
 
-      <Dashboard onNavigate={handleNavigate} />)
-      }
-      {currentRoute === '/instructions' && <ResponseInstructions />}
-      {currentRoute === '/population' && <PopulationData onNavigate={setCurrentRoute} />}
-      {currentRoute === '/population/import' && <PopulationImport onNavigate={setCurrentRoute} />}
-      {currentRoute === '/presets' &&
-      <DiseasePresets onNavigate={setCurrentRoute} canEditBuiltIns={canEditBuiltIns} />
-      }
-      {currentRoute === '/intervention-library' && <Interventions canEditBuiltIns={false} />}
-      {currentRoute === '/simulation' && <Simulations onNavigate={setCurrentRoute} />}
-      {currentRoute === '/health-workers' && <HealthWorkerLayer onNavigate={setCurrentRoute} />}
-      {currentRoute === '/rt' && <RtTracking onNavigate={setCurrentRoute} />}
-      {currentRoute === '/interventions' && (
-      isOfficer ?
-      <LocalResponsePlans /> :
-      isPolicy ?
-      <PolicyInterventions /> :
+      <Routes>
+          <Route
+          path="dashboard"
+          element={
+          isAnalyst ?
+          <AnalystDashboard onNavigate={onNavigate} /> :
+          isOfficer ?
+          <OfficerDashboard onNavigate={onNavigate} /> :
+          isPolicy ?
+          <PolicyDashboard onNavigate={onNavigate} /> :
 
-      <Interventions canEditBuiltIns={canEditBuiltIns} />)
-      }
-      {currentRoute === '/geographic' && <Geographic />}
-      {currentRoute === '/healthcare' && isOfficer && <HospitalTracker />}
-      {(currentRoute === '/capacity' || currentRoute === '/healthcare' && !isOfficer) && (
-      hasAccess(role, 'capacity') ?
-      <CapacityProfiles /> :
+          <Dashboard onNavigate={onNavigate} />
 
-      <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary">
-            <h2 className="text-h2 text-text-primary mb-2">Healthcare capacity is managed by Public Health Officers</h2>
-            <p className="text-body max-w-md">Capacity profiles are kept by each hospital’s Public Health Officer and aren’t available to your role.</p>
-            <button onClick={() => setCurrentRoute('/dashboard')} className="mt-6 text-primary hover:underline text-[13px] font-semibold">
-              Return to Dashboard
-            </button>
-          </div>)
-      }
-      {currentRoute === '/scenarios' && <Scenarios onNavigate={setCurrentRoute} />}
-      {currentRoute === '/scenario' && (
-      isAnalyst ?
-      <AnalystScenarios /> :
-      isPolicy ?
-      <PolicyScenarios /> :
+          } />
 
-      <ScenarioComparison />)
-      }
-      {currentRoute === '/reports' && (
-      isAnalyst ?
-      <AnalystReports /> :
-      isOfficer ?
-      <OfficerReports /> :
-      isPolicy ?
-      <PolicyReports /> :
+          <Route path="instructions" element={<ResponseInstructions />} />
+          <Route path="population" element={<PopulationData onNavigate={onNavigate} />} />
+          <Route path="population/import" element={<PopulationImport onNavigate={onNavigate} />} />
+          <Route path="presets" element={<DiseasePresets onNavigate={onNavigate} canEditBuiltIns={CAN_EDIT_BUILT_INS} />} />
+          <Route path="intervention-library" element={<Interventions canEditBuiltIns={false} />} />
+          <Route path="simulation" element={<Simulations onNavigate={onNavigate} />} />
+          <Route path="simulation/runs/:runId" element={<RunResults />} />
+          <Route path="health-workers" element={<HealthWorkerLayer onNavigate={onNavigate} />} />
+          <Route path="rt" element={<RtTracking onNavigate={onNavigate} />} />
+          <Route
+          path="interventions"
+          element={isOfficer ? <LocalResponsePlans /> : isPolicy ? <PolicyInterventions /> : <Interventions canEditBuiltIns={CAN_EDIT_BUILT_INS} />} />
 
-      <Reports focusedReportId={focusedReportId} />)
-      }
-      {currentRoute === '/settings' && <Settings />}
+          <Route path="geographic" element={<Geographic />} />
+          <Route
+          path="healthcare"
+          element={
+          isOfficer ?
+          <HospitalTracker /> :
+          hasAccess(role, 'capacity') ?
+          <CapacityProfiles /> :
 
-      {/* Fallback for unhandled routes */}
-      {![
-      '/dashboard',
-      '/instructions',
-      '/population',
-      '/population/import',
-      '/presets',
-      '/intervention-library',
-      '/simulation',
-      '/health-workers',
-      '/rt',
-      '/interventions',
-      '/geographic',
-      '/healthcare',
-      '/capacity',
-      '/scenarios',
-      '/scenario',
-      '/reports',
-      '/settings'].
-      includes(currentRoute) &&
-      <div className="flex flex-col items-center justify-center h-full text-text-secondary">
-          <h2 className="text-h2 mb-2">Under Construction</h2>
-          <p className="text-body">This module is currently being built.</p>
-          <button
-          onClick={() => setCurrentRoute('/dashboard')}
-          className="mt-6 text-primary hover:underline text-[13px] font-semibold">
-          
-            Return to Dashboard
-          </button>
-        </div>
+          <NoAccess
+            title="Healthcare capacity is managed by Public Health Officers"
+            text="Capacity profiles are kept by each hospital’s Public Health Officer and aren’t available to your role." />
+
+
+          } />
+
+          <Route path="capacity" element={<CapacityProfiles />} />
+          <Route path="scenarios" element={<Scenarios onNavigate={onNavigate} />} />
+          <Route path="scenario" element={isAnalyst ? <AnalystScenarios /> : isPolicy ? <PolicyScenarios /> : <ScenarioComparison />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="reports/:reportId" element={<ReportsPage />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<UnderConstruction />} />
+        </Routes>
       }
     </Layout>);
 
 }
-interface AppProps {
-  /** How a population import ends the first time it runs (retry always succeeds). */
-  importOutcome?: 'succeed' | 'fail';
-  /** Grants the signed-in Epidemiologist permission to edit built-in disease presets and intervention types. */
-  canEditBuiltIns?: boolean;
-  /** How the next simulation started on the Simulations page ends ("Try again" always succeeds). */
-  simulationOutcome?: 'succeed' | 'fail';
-}
-export function App({ importOutcome = 'succeed', canEditBuiltIns = false, simulationOutcome = 'succeed' }: AppProps) {
+
+function AppRoutes() {
+  const onNavigate = useAppNavigate();
   return (
-    <AuthProvider>
-      <OfficerProvider>
-        <AdminProvider>
-          <AccountRequestProvider>
-            <ImportJobProvider outcome={importOutcome}>
-              <SimulationRunsProvider outcome={simulationOutcome}>
-                <AppRoutes canEditBuiltIns={canEditBuiltIns} />
-              </SimulationRunsProvider>
-            </ImportJobProvider>
-          </AccountRequestProvider>
-        </AdminProvider>
-      </OfficerProvider>
-    </AuthProvider>);
+    <Routes>
+      <Route path="/" element={<Standalone><Landing onNavigate={onNavigate} /></Standalone>} />
+      <Route path="/login" element={<Standalone><Login onNavigate={onNavigate} /></Standalone>} />
+      <Route path="/request-account" element={<Standalone><RequestAccount onNavigate={onNavigate} /></Standalone>} />
+      <Route path="/register" element={<Standalone><RequestAccount onNavigate={onNavigate} /></Standalone>} />
+      <Route path="/forgot" element={<Standalone><ForgotPassword onNavigate={onNavigate} /></Standalone>} />
+      <Route path="/mfa" element={<Standalone><MFA onNavigate={onNavigate} /></Standalone>} />
+      <Route path="/about" element={<Standalone><About /></Standalone>} />
+      <Route path="/admin/*" element={<RequireAuth><AdminArea /></RequireAuth>} />
+      <Route path="/*" element={<RequireAuth><MainArea /></RequireAuth>} />
+    </Routes>);
+
+}
+
+export function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <OfficerProvider>
+            <AdminProvider>
+              <AccountRequestProvider>
+                <ImportJobProvider>
+                  <SimulationRunsProvider>
+                    <AppRoutes />
+                  </SimulationRunsProvider>
+                </ImportJobProvider>
+              </AccountRequestProvider>
+            </AdminProvider>
+          </OfficerProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>);
 
 }

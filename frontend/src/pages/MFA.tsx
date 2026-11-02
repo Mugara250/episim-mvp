@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Activity,
   Smartphone,
@@ -7,12 +7,16 @@ import {
   KeyRound,
   ChevronRight } from
 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 interface MFAProps {
   onNavigate: (route: string) => void;
 }
 export function MFA({ onNavigate }: MFAProps) {
   const { role } = useAuth();
+  const from = (useLocation().state as {from?: string;} | null)?.from;
+  const home = role === 'admin' ? '/admin/users' : '/dashboard';
+  const next = from && (role === 'admin') === from.startsWith('/admin') ? from : home;
   const [selectedMethod, setSelectedMethod] = useState<string>('app');
   const methods = [
   {
@@ -64,6 +68,9 @@ export function MFA({ onNavigate }: MFAProps) {
           </h1>
           <p className="text-text-primary font-medium">
             Add an extra layer of security to your account
+          </p>
+          <p className="mt-3 inline-block text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+            Mock step in this demo: no code is sent or checked
           </p>
         </div>
 
@@ -151,7 +158,7 @@ export function MFA({ onNavigate }: MFAProps) {
         {/* Action */}
         <button
           onClick={() =>
-          onNavigate(role === 'admin' ? '/admin/users' : '/dashboard')
+          onNavigate(next)
           }
           className="w-full bg-primary hover:bg-primary-dark text-white py-3.5 rounded-xl text-[14px] font-semibold transition-colors shadow-sm">
           

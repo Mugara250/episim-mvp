@@ -1,11 +1,8 @@
-import { useMemo } from 'react';
-import { manifest } from './canvas.manifest.js';
+// Legacy hook from the design-tool export, where each preview screen injected its own
+// initial state. The real app takes state from the URL and the API, so this always
+// returns {}. Kept so pages that still call it compile; later phases remove the calls.
+const EMPTY = Object.freeze({});
 
 export function useScreenInit() {
-  return useMemo(() => {
-    if (typeof window === 'undefined') return {};
-    const screenId = new URLSearchParams(window.location.search).get('mp_screen');
-    if (!screenId) return {};
-    return manifest?.screens?.[screenId]?.state ?? {};
-  }, []);
+  return EMPTY;
 }
