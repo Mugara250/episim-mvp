@@ -1,20 +1,20 @@
-import React from 'react';
-import { BarChart3, GitCompare, History, RotateCcw, Search, X } from 'lucide-react';
+import { BarChart3, FileText, GitCompare, History, Map as MapIcon, RotateCcw, Search, X } from 'lucide-react';
 import { RunHistoryState, StatusFilter } from '../../hooks/useRunHistory';
-import { Scenario } from '../../types/scenarios';
 import { SimulationRun } from '../../types/simulationRuns';
-import { findPreset } from '../../utils/scenarios';
-import { formatDuration, formatStarted, isActive, STATUS_LABELS } from '../../utils/simulationRuns';
+import { formatDuration, formatPct, formatRange, formatStarted, isActive, MODEL_LABELS, STATUS_LABELS } from '../../utils/simulationRuns';
 import { RunStatusBadge } from './RunStatusBadge';
 
 interface RunHistoryProps {
   h: RunHistoryState;
   totalRuns: number;
   loading: boolean;
-  userName: string;
+  userId: string;
   canRun: boolean;
-  findScenario: (id: string) => Scenario | undefined;
+  /** Seeded runs on illustrative data are labelled so. */
+  error?: string | null;
   onView: (run: SimulationRun) => void;
+  onMap: (run: SimulationRun) => void;
+  onReport?: (run: SimulationRun) => void;
   onCancel: (run: SimulationRun) => void;
   onRunAgain: (run: SimulationRun) => void;
   onCompare: () => void;
@@ -22,7 +22,7 @@ interface RunHistoryProps {
 }
 
 const selectCls = 'px-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary';
-const COLS = 'grid-cols-[28px_minmax(0,2fr)_minmax(0,1fr)_80px_64px_110px_minmax(0,1.1fr)_minmax(0,1.2fr)_72px_120px]';
+const COLS = 'grid-cols-[28px_minmax(0,2.4fr)_minmax(0,1fr)_80px_64px_110px_minmax(0,1.1fr)_minmax(0,1.2fr)_72px_168px]';
 
 function RowAction({ label, icon: Icon, onClick, danger }: {label: string;icon: typeof X;onClick: () => void;danger?: boolean;}) {
   return (
@@ -37,7 +37,8 @@ function RowAction({ label, icon: Icon, onClick, danger }: {label: string;icon: 
 
 }
 
-export function RunHistory({ h, totalRuns, loading, userName, canRun, findScenario, onView, onCancel, onRunAgain, onCompare, onStartFirst }: RunHistoryProps) {
+export function RunHistory({ h, totalRuns, loading, userId, canRun, error, onView, onMap, onReport, onCancel, onRunAgain, onCompare, onStartFirst }: RunHistoryProps) {
+  const diseaseName = (id: string) => h.rows.find((r) => r.disease === id)?.presetName ?? id;
   const statuses: StatusFilter[] = ['all', 'queued', 'running', 'completed', 'failed', 'cancelled'];
   const n = h.selected.length;
 
@@ -62,7 +63,7 @@ export function RunHistory({ h, totalRuns, loading, userName, canRun, findScenar
         <select value={h.disease} onChange={(e) => h.setDisease(e.target.value)} aria-label="Filter by disease" className={selectCls}>
           <option value="all">All diseases</option>
           {h.diseaseIds.map((id) =>
-          <option key={id} value={id}>{findPreset(id)?.name ?? id}</option>
+          <option key={id} value={id}>{diseaseName(id)}</option>
           )}
         </select>
         <div className="flex items-center gap-1.5">
@@ -96,7 +97,7 @@ export function RunHistory({ h, totalRuns, loading, userName, canRun, findScenar
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[1080px]">
+        <div className="min-w-[1180px]">
           <div className={`grid ${COLS} gap-3 px-6 py-3 border-b border-border text-[11px] font-semibold text-text-secondary uppercase tracking-wide`}>
             <span className="sr-only">Select</span>
             <span>Scenario</span>
@@ -110,7 +111,9 @@ export function RunHistory({ h, totalRuns, loading, userName, canRun, findScenar
             <span className="text-right">Actions</span>
           </div>
 
-          {loading ?
+          {error ?
+          <p className="px-6 py-10 text-center text-[13px] text-danger">Runs couldn’t be loaded: {error}</p> :
+          loading ?
           <ul aria-busy="true" aria-label="Loading runs">
               {[0, 1, 2, 3, 4].map((i) =>
             <li key={i} className={`grid ${COLS} gap-3 px-6 py-4 border-b border-border last:border-0 animate-pulse items-center`}>
@@ -148,7 +151,6 @@ export function RunHistory({ h, totalRuns, loading, userName, canRun, findScenar
 
           <ul>
               {h.rows.map((r) => {
-              const sc = findScenario(r.scenarioId);
               const selectable = r.status === 'completed';
               const checked = h.selected.includes(r.id);
               return (
@@ -158,29 +160,40 @@ export function RunHistory({ h, totalRuns, loading, userName, canRun, findScenar
                     checked={checked}
                     disabled={!selectable}
                     onChange={() => h.toggle(r.id)}
-                    aria-label={`Select ${sc?.name ?? r.id} for comparison`}
+                    aria-label={`Select ${r.scenarioName} for comparison`}
                     title={selectable ? undefined : 'Only completed runs can be compared'}
                     className="w-4 h-4 accent-primary disabled:opacity-30" />
                   
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-text-primary truncate">{sc?.name ?? 'Scenario no longer available'}</p>
-                      <p className="text-[12px] text-text-secondary">{r.id}</p>
+                      <p className="text-[13px] font-semibold text-text-primary truncate">{r.scenarioName}</p>
+                      <p className="text-[12px] text-text-secondary">{r.id} · {MODEL_LABELS[r.modelType]}</p>
+                      {r.status === 'completed' && r.summary?.ranges &&
+                    <p className="text-[11px] text-text-secondary tabular-nums truncate" title="Median (5–95% of runs)">
+                          Cases {formatRange(r.summary.ranges.finalCases)} · Deaths {formatRange(r.summary.ranges.finalDeaths)} · Takes off {formatPct(r.summary.ranges.pTakeOff)}
+                        </p>
+                    }
+                      {r.status === 'failed' && r.error && <p className="text-[11px] text-danger truncate" title={r.error}>{r.error}</p>}
                     </div>
-                    <span className="text-[13px] text-text-primary truncate">{findPreset(sc?.presetId ?? null)?.name ?? '—'}</span>
+                    <span className="text-[13px] text-text-primary truncate">
+                      {r.presetName ?? '—'}
+                      {r.provisional && <span className="block text-[11px] text-warning">Provisional</span>}
+                    </span>
                     <span className="text-[13px] text-text-primary tabular-nums">{r.horizonDays} days</span>
                     <span className="text-[13px] text-text-primary tabular-nums">{r.initialCases}</span>
                     <span>
                       <RunStatusBadge status={r.status} />
                     </span>
-                    <span className="text-[13px] text-text-primary truncate">{r.requestedBy === userName ? 'You' : r.requestedBy}</span>
+                    <span className="text-[13px] text-text-primary truncate">{r.requestedById === userId ? 'You' : r.requestedBy}</span>
                     <span className="text-[13px] text-text-secondary tabular-nums">{formatStarted(r.startedAt)}</span>
                     <span className="text-[13px] text-text-secondary tabular-nums">
                       {r.durationSec !== null ? formatDuration(r.durationSec) : isActive(r.status) ? `${Math.round(r.progress * 100)}%` : '—'}
                     </span>
                     <div className="flex items-center justify-end gap-0.5">
                       {r.status === 'completed' && <RowAction label="View results" icon={BarChart3} onClick={() => onView(r)} />}
+                      {r.status === 'completed' && r.modelType === 'seihfr_geo' && <RowAction label="Open on map" icon={MapIcon} onClick={() => onMap(r)} />}
+                      {r.status === 'completed' && onReport && <RowAction label="Add to report" icon={FileText} onClick={() => onReport(r)} />}
                       {isActive(r.status) && canRun && <RowAction label="Cancel run" icon={X} danger onClick={() => onCancel(r)} />}
-                      {canRun && !isActive(r.status) && sc && <RowAction label="Run again" icon={RotateCcw} onClick={() => onRunAgain(r)} />}
+                      {canRun && !isActive(r.status) && <RowAction label="Run again" icon={RotateCcw} onClick={() => onRunAgain(r)} />}
                     </div>
                   </li>);
 

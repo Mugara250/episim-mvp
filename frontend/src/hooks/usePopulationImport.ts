@@ -1,61 +1,54 @@
 import { useMemo, useState } from 'react';
-import { useScreenInit } from '../useScreenInit.js';
+import { useQuery } from '@tanstack/react-query';
+import { checkImport, populationKeys, useDatasets } from '../api/population';
 import { useImportJob } from '../context/ImportJobContext';
 import {
-  DISTRICTS,
-  EXISTING_DATASETS,
-  FULL_READ_LIMIT_BYTES,
-  MAX_FILE_BYTES,
-  PROVINCES,
-  SAMPLE_CHECK,
-  SAMPLE_FILE,
-  SAMPLE_ROWS,
-  SECTORS } from
-'../data/populationImport';
-import {
   DetectedFormat,
+  ExistingDataset,
   ImportDetails,
   ImportFormat,
   Mapping,
   UploadedFile,
   ValidationSummary } from
 '../types/populationImport';
-import { autoMap, checkRows, detectFormat, fieldsFor, formatBytes, hasError, hasWarningOnly, parseCsvLine } from '../utils/populationImport';
+import {
+  DISTRICTS,
+  FULL_READ_LIMIT_BYTES,
+  MAX_FILE_BYTES,
+  PROVINCES,
+  SAMPLE_FILE_URL,
+  SECTORS,
+  autoMap,
+  detectFormat,
+  fieldsFor,
+  formatBytes,
+  parseCsvLine } from
+'../utils/populationImport';
 
 export const STEPS = ['Upload', 'Check', 'Details', 'Review & Import'] as const;
 
-const SAMPLE_UPLOAD: UploadedFile = {
-  name: SAMPLE_FILE.name,
-  sizeBytes: SAMPLE_FILE.sizeBytes,
-  rows: SAMPLE_FILE.rows,
-  rowsEstimated: false,
-  columns: SAMPLE_FILE.columns,
-  sampleRows: SAMPLE_ROWS,
-  fullyRead: false,
-  isSample: true
-};
-
-const UNREADABLE_DEMO = {
-  title: 'We couldn’t read “district_totals_2022.xlsx”',
-  detail: 'This looks like an Excel workbook. Open it in Excel and choose File › Save As › CSV (comma delimited), then upload the CSV.'
-};
+const PREVIEW_ROWS = 20;
 
 const detailsFor = (file: UploadedFile): ImportDetails => ({
-  name: file.isSample ? 'RPHC5 2022 (10% sample)' : file.name.replace(/\.csv$/i, '').replace(/[_-]+/g, ' '),
+  name: file.isSample ? 'Illustrative district counts (sample)' : file.name.replace(/\.csv$/i, '').replace(/[_-]+/g, ' '),
   provinceCode: '',
   districtCode: '',
   sectorCode: '',
   year: file.isSample ? '2022' : '',
-  source: 'NISR Census'
+  source: file.isSample ? 'Other' : 'NISR Census'
 });
 
-async function readCsv(file: File): Promise<UploadedFile> {
+/** Reads the header and first rows in the browser. The server checks every row. */
+async function readCsv(file: File, isSample = false): Promise<UploadedFile> {
   const fail = (title: string, detail: string) => Promise.reject({ title, detail });
   if (!/\.csv$/i.test(file.name))
   return fail(`We couldn’t read “${file.name}”`, 'Only CSV files can be imported. If this is an Excel workbook, save it as CSV (comma delimited) first.');
   if (file.size === 0) return fail(`“${file.name}” is empty`, 'The file has no content. Check you exported the right file and try again.');
   if (file.size > MAX_FILE_BYTES)
-  return fail(`“${file.name}” is too large`, `The file is ${formatBytes(file.size)}. The limit is 2 GB. Split it by province and import each part.`);
+  return fail(
+    `“${file.name}” is too large`,
+    `The file is ${formatBytes(file.size)}. This demo accepts files up to ${formatBytes(MAX_FILE_BYTES)}. Split it by province and import each part.`
+  );
 
   const fullyRead = file.size <= FULL_READ_LIMIT_BYTES;
   const text = fullyRead ? await file.text() : await file.slice(0, 256 * 1024).text();
@@ -70,7 +63,7 @@ async function readCsv(file: File): Promise<UploadedFile> {
   return fail(`We couldn’t find any columns in “${file.name}”`, 'The first row should hold column names separated by commas, followed by at least one row of data.');
 
   const data = nonEmpty.slice(1);
-  const sampleRows = data.map((l) => {
+  const sampleRows = data.slice(0, PREVIEW_ROWS).map((l) => {
     const v = parseCsvLine(l);
     return Object.fromEntries(header.map((h, i) => [h, v[i] ?? '']));
   });
@@ -83,7 +76,7 @@ async function readCsv(file: File): Promise<UploadedFile> {
     columns: header,
     sampleRows,
     fullyRead,
-    isSample: false
+    isSample
   };
 }
 
@@ -98,26 +91,25 @@ function regionLabel(d: ImportDetails) {
 }
 
 export function usePopulationImport() {
-  const init = useScreenInit() as {importStep?: number;importFile?: string;};
   const { job, start, reset: resetJob } = useImportJob();
+  const datasets = useDatasets();
 
-  const seededFile = init.importFile === 'sample' || job.status !== 'idle' ? SAMPLE_UPLOAD : null;
-  const [step, setStep] = useState<number>(job.status !== 'idle' ? 3 : init.importStep ?? 0);
-  const [file, setFile] = useState<UploadedFile | null>(seededFile);
+  const [step, setStep] = useState<number>(job.status !== 'idle' ? 3 : 0);
+  const [file, setFile] = useState<UploadedFile | null>(null);
+  const [rawFile, setRawFile] = useState<File | null>(null);
   const [reading, setReading] = useState(false);
-  const [uploadError, setUploadError] = useState<{title: string;detail: string;} | null>(
-    init.importFile === 'error' ? UNREADABLE_DEMO : null
-  );
-  const [detected, setDetected] = useState<DetectedFormat>(seededFile ? 'microdata' : 'unknown');
-  const [format, setFormat] = useState<ImportFormat | null>(seededFile ? 'microdata' : null);
-  const [mapping, setMapping] = useState<Mapping>(seededFile ? autoMap('microdata', seededFile.columns) : {});
-  const [details, setDetails] = useState<ImportDetails>(seededFile ? detailsFor(seededFile) : detailsFor(SAMPLE_UPLOAD));
+  const [uploadError, setUploadError] = useState<{title: string;detail: string;} | null>(null);
+  const [detected, setDetected] = useState<DetectedFormat>('unknown');
+  const [format, setFormat] = useState<ImportFormat | null>(null);
+  const [mapping, setMapping] = useState<Mapping>({});
+  const [details, setDetails] = useState<ImportDetails>(() => ({ name: '', provinceCode: '', districtCode: '', sectorCode: '', year: '', source: 'NISR Census' }));
   const [triedDetails, setTriedDetails] = useState(false);
 
-  const accept = (f: UploadedFile) => {
+  const accept = (f: UploadedFile, raw: File) => {
     const d = detectFormat(f.columns);
     const fmt = d === 'unknown' ? null : d;
     setFile(f);
+    setRawFile(raw);
     setDetected(d);
     setFormat(fmt);
     setMapping(fmt ? autoMap(fmt, f.columns) : {});
@@ -125,29 +117,36 @@ export function usePopulationImport() {
     setUploadError(null);
   };
 
-  const upload = async (f: File) => {
+  const upload = async (f: File, isSample = false) => {
     setReading(true);
     setUploadError(null);
     try {
-      accept(await readCsv(f));
+      accept(await readCsv(f, isSample), f);
     } catch (e) {
       setFile(null);
+      setRawFile(null);
       setUploadError(e as {title: string;detail: string;});
     } finally {
       setReading(false);
     }
   };
 
-  const loadSample = () => {
+  const loadSample = async () => {
     setReading(true);
-    window.setTimeout(() => {
-      accept(SAMPLE_UPLOAD);
+    try {
+      const res = await fetch(SAMPLE_FILE_URL);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      await upload(new File([blob], SAMPLE_FILE_URL.split('/').pop()!, { type: 'text/csv' }), true);
+    } catch {
+      setUploadError({ title: 'The sample file couldn’t be loaded', detail: 'Try again, or upload a CSV of your own.' });
       setReading(false);
-    }, 600);
+    }
   };
 
   const removeFile = () => {
     setFile(null);
+    setRawFile(null);
     setUploadError(null);
     setFormat(null);
     setMapping({});
@@ -164,54 +163,31 @@ export function usePopulationImport() {
   const usedColumns = Object.values(mapping).filter(Boolean);
   const duplicateColumns = usedColumns.filter((c, i) => usedColumns.indexOf(c) !== i);
 
+  // Every row is checked on the server with the same rules the import uses.
+  const mappingKey = JSON.stringify(mapping);
+  const check = useQuery({
+    queryKey: [...populationKeys.check, file?.name, file?.sizeBytes, format, mappingKey],
+    queryFn: () => checkImport(rawFile!, format!, mapping),
+    enabled: !!rawFile && !!format && !missingRequired.length && !duplicateColumns.length,
+    staleTime: Infinity
+  });
   const validation: ValidationSummary | null = useMemo(() => {
-    if (!file || !format || missingRequired.length) return null;
-    const checked = checkRows(file.sampleRows, format, mapping);
-    const flagged = checked.filter((r) => r.issues.length);
-    const preview = checked.slice(0, 8);
-    const isDefaultSample =
-    file.isSample && format === 'microdata' && JSON.stringify(mapping) === JSON.stringify(autoMap('microdata', file.columns));
-    if (isDefaultSample) {
-      return {
-        totalRows: file.rows,
-        checkedRows: file.rows,
-        validRows: file.rows - SAMPLE_CHECK.errorRows,
-        errorRows: SAMPLE_CHECK.errorRows,
-        warningRows: SAMPLE_CHECK.warningRows,
-        breakdown: SAMPLE_CHECK.breakdown,
-        partial: false,
-        preview,
-        flagged
-      };
-    }
-    const errorRows = checked.filter(hasError).length;
-    const counts: Record<string, number> = {};
-    checked.forEach((r) => {
-      const kinds = new Set(r.issues.filter((i) => i.level === 'error').map((i) => i.kind));
-      kinds.forEach((k) => counts[k] = (counts[k] ?? 0) + 1);
-    });
-    return {
-      totalRows: file.rows,
-      checkedRows: checked.length,
-      validRows: checked.length - errorRows,
-      errorRows,
-      warningRows: checked.filter(hasWarningOnly).length,
-      breakdown: Object.entries(counts).
-      map(([kind, count]) => ({ kind, count })).
-      sort((a, b) => b.count - a.count),
-      partial: !file.fullyRead,
-      preview,
-      flagged
-    };
-  }, [file, format, JSON.stringify(mapping), missingRequired.length]);
+    if (!file || !format || missingRequired.length || !check.data?.summary) return null;
+    return check.data.summary;
+  }, [file, format, missingRequired.length, check.data]);
+  const checkError = check.error instanceof Error ? check.error.message : check.data?.error ?? null;
 
-  const existing = EXISTING_DATASETS.find((d) => d.name.trim().toLowerCase() === details.name.trim().toLowerCase());
+  const existing: ExistingDataset | undefined = useMemo(() => {
+    const match = datasets.data?.find((d) => d.name.trim().toLowerCase() === details.name.trim().toLowerCase());
+    return match && { id: match.id, name: match.name, latestVersion: match.version, scenariosUsing: match.scenariosUsing };
+  }, [datasets.data, details.name]);
   const version = existing ? existing.latestVersion + 1 : 1;
 
   const yearNum = Number(details.year);
+  const thisYear = new Date().getFullYear();
   const detailErrors = {
     name: !details.name.trim() ? 'Give the dataset a name.' : '',
-    year: !/^\d{4}$/.test(details.year) || yearNum < 1978 || yearNum > 2026 ? 'Enter a year between 1978 and 2026.' : '',
+    year: !/^\d{4}$/.test(details.year) || yearNum < 1978 || yearNum > thisYear ? `Enter a year between 1978 and ${thisYear}.` : '',
     source: !details.source.trim() ? 'Choose where the data comes from.' : ''
   };
   const detailsValid = !detailErrors.name && !detailErrors.year && !detailErrors.source;
@@ -232,26 +208,35 @@ export function usePopulationImport() {
   };
   const back = () => setStep((s) => Math.max(0, s - 1));
 
-  const records = validation ?
-  validation.partial ?
-  Math.round(file!.rows * (validation.validRows / Math.max(1, validation.checkedRows))) :
-  validation.validRows :
-  0;
+  const records = validation ? validation.validRows : 0;
 
   const startImport = () => {
-    if (!file || !format) return;
-    start({
-      datasetName: details.name.trim(),
-      fileName: file.name,
-      fileSize: file.sizeBytes,
-      format,
-      records,
-      skippedRows: file.rows - records,
-      regionLabel: regionLabel(details),
-      year: details.year,
-      source: details.source,
-      version
-    });
+    if (!file || !rawFile || !format) return;
+    const label = regionLabel(details);
+    start(
+      {
+        datasetName: existing?.name ?? details.name.trim(),
+        fileName: file.name,
+        fileSize: file.sizeBytes,
+        format,
+        records,
+        skippedRows: (validation?.totalRows ?? file.rows) - records,
+        regionLabel: label,
+        year: details.year,
+        source: details.source,
+        version
+      },
+      {
+        file: rawFile,
+        format,
+        mapping,
+        datasetId: existing?.id ?? null,
+        name: details.name.trim(),
+        coverage: label,
+        source: details.source,
+        year: details.year
+      }
+    );
   };
 
   const startOver = () => {
@@ -267,7 +252,7 @@ export function usePopulationImport() {
     file,
     reading,
     uploadError,
-    upload,
+    upload: (f: File) => upload(f),
     loadSample,
     removeFile,
     detected,
@@ -279,6 +264,8 @@ export function usePopulationImport() {
     missingRequired,
     duplicateColumns,
     validation,
+    checking: check.isFetching,
+    checkError,
     details,
     setDetails,
     detailErrors: triedDetails ? detailErrors : { name: '', year: '', source: '' },

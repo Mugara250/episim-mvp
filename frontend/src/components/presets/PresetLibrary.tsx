@@ -1,6 +1,4 @@
-import React from 'react';
 import { Copy, Lock, Plus, Search } from 'lucide-react';
-import { ROUTE_LABELS } from '../../data/diseasePresets';
 import { DiseasePresetsState } from '../../hooks/useDiseasePresets';
 import { PresetFilter } from '../../types/presets';
 import { asPercent } from '../../utils/presets';
@@ -36,7 +34,7 @@ export function PresetLibrary({ s }: {s: DiseasePresetsState;}) {
             id="preset-search"
             value={s.query}
             onChange={(e) => s.setQuery(e.target.value)}
-            placeholder="Search by name or route"
+            placeholder="Search by name or virus"
             className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-primary" />
           
         </div>
@@ -90,6 +88,8 @@ export function PresetLibrary({ s }: {s: DiseasePresetsState;}) {
               </div>
           }
           </div> :
+        s.loading ?
+        <p className="px-4 py-10 text-center text-[13px] text-text-secondary">Loading presets…</p> :
         s.visible.length === 0 && !s.isNew ?
         <div className="px-4 py-10 text-center">
             <p className="text-[14px] font-semibold text-text-primary">No presets match “{s.query}”</p>
@@ -118,17 +118,23 @@ export function PresetLibrary({ s }: {s: DiseasePresetsState;}) {
                       </span>
                       {changed && <span className="w-2 h-2 rounded-full bg-warning mt-1.5 flex-shrink-0" aria-label="Unsaved changes" />}
                     </div>
-                    <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-surface-2 text-[11px] font-semibold text-text-secondary">
-                      {ROUTE_LABELS[p.route]}
+                    <span className="flex flex-wrap gap-1.5 mt-2">
+                      <span className="px-2 py-0.5 rounded-full bg-surface-2 text-[11px] font-semibold text-text-secondary">{p.virus || p.disease}</span>
+                      {p.provisional &&
+                    <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[11px] font-semibold">Provisional</span>
+                    }
                     </span>
                     <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
                       <div>
                         <dt className="text-text-secondary">R0</dt>
-                        <dd className="text-text-primary font-semibold tabular-nums">{p.r0}</dd>
+                        <dd className="text-text-primary font-semibold tabular-nums">
+                          {p.r0Likely}
+                          <span className="text-text-secondary font-normal"> ({p.r0Low}–{p.r0High})</span>
+                        </dd>
                       </div>
                       <div>
-                        <dt className="text-text-secondary">Mortality</dt>
-                        <dd className="text-text-primary font-semibold tabular-nums">{asPercent(p.mortality)}</dd>
+                        <dt className="text-text-secondary">Fatality, admitted</dt>
+                        <dd className="text-text-primary font-semibold tabular-nums">{asPercent(p.cfrHospital)}</dd>
                       </div>
                       <div>
                         <dt className="text-text-secondary">Incubation</dt>

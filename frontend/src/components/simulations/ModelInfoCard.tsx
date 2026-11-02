@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowDown, ArrowRight } from 'lucide-react';
 
 interface Compartment {
@@ -97,7 +97,7 @@ export function ModelInfoCard() {
         </p>
         <p className="flex items-start gap-2">
           <ArrowRight size={14} className="mt-0.5 flex-shrink-0 text-primary" />
-          Results show the expected course of the outbreak, not the chance of it dying out on its own.
+          Each scenario is run many times with random chance (Monte Carlo). Results show the median and the 5–95% range, plus the chance the outbreak takes off rather than dying out. They are scenario estimates, not forecasts.
         </p>
       </div>
     </aside>);

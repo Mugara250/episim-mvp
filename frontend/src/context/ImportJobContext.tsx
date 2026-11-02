@@ -1,9 +1,7 @@
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useScreenInit } from '../useScreenInit.js';
-import { SAMPLE_CHECK, SAMPLE_FILE } from '../data/populationImport';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchImportJob, populationKeys, startImport, StartImportInput } from '../api/population';
 import { AggregateStatus, ImportFormat, ImportStatus } from '../types/populationImport';
-
-export type ImportOutcome = 'succeed' | 'fail';
 
 export interface ImportSummary {
   datasetName: string;
@@ -19,6 +17,8 @@ export interface ImportSummary {
 }
 
 export interface ImportJob {
+  /** Server job id once the upload is accepted. */
+  id: string | null;
   status: ImportStatus;
   progress: number;
   summary: ImportSummary | null;
@@ -29,87 +29,97 @@ export interface ImportJob {
 
 interface ImportJobContextType {
   job: ImportJob;
-  start: (summary: ImportSummary) => void;
+  start: (summary: ImportSummary, input: StartImportInput) => void;
   retry: () => void;
+  /** District totals are computed by the server during the import; kept for the panel's interface. */
   computeAggregates: () => void;
   reset: () => void;
 }
 
-const IDLE: ImportJob = { status: 'idle', progress: 0, summary: null, error: null, startedAt: null, aggregates: 'idle' };
-const FAIL_AT = 62;
-
-const SAMPLE_SUMMARY: ImportSummary = {
-  datasetName: 'RPHC5 2022 (10% sample)',
-  fileName: SAMPLE_FILE.name,
-  fileSize: SAMPLE_FILE.sizeBytes,
-  format: 'microdata',
-  records: SAMPLE_FILE.rows - SAMPLE_CHECK.errorRows,
-  skippedRows: SAMPLE_CHECK.errorRows,
-  regionLabel: 'All of Rwanda',
-  year: '2022',
-  source: 'NISR Census',
-  version: 2
-};
+const IDLE: ImportJob = { id: null, status: 'idle', progress: 0, summary: null, error: null, startedAt: null, aggregates: 'idle' };
+const POLL_MS = 700;
 
 const timeNow = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-const failMessage = (summary: ImportSummary) =>
-`The connection to the data store dropped after ${Math.round(summary.records * FAIL_AT / 100).toLocaleString('en-US')} rows. Nothing was saved, so you can safely try again.`;
-
-function seededJob(status?: string): ImportJob {
-  if (status === 'completed') return { ...IDLE, status: 'completed', progress: 100, summary: SAMPLE_SUMMARY, startedAt: '09:14' };
-  if (status === 'failed')
-  return { ...IDLE, status: 'failed', progress: FAIL_AT, summary: SAMPLE_SUMMARY, startedAt: '09:14', error: failMessage(SAMPLE_SUMMARY) };
-  return IDLE;
-}
-
 const ImportJobContext = createContext<ImportJobContextType | undefined>(undefined);
 
-/** Holds the background import so it keeps running when the user leaves the page. */
-export function ImportJobProvider({ children, outcome = 'succeed' }: {children: ReactNode;outcome?: ImportOutcome;}) {
-  const screenInit = useScreenInit() as {importStatus?: string;};
-  const [job, setJob] = useState<ImportJob>(() => seededJob(screenInit.importStatus));
-  const timers = useRef<number[]>([]);
+/** Holds the background import so it keeps running (and is polled) when the user leaves the page. */
+export function ImportJobProvider({ children }: {children: ReactNode;}) {
+  const queryClient = useQueryClient();
+  const [job, setJob] = useState<ImportJob>(IDLE);
+  const lastInput = useRef<{summary: ImportSummary;input: StartImportInput;} | null>(null);
+  const timer = useRef<number | null>(null);
 
-  const clear = () => {
-    timers.current.forEach((t) => window.clearTimeout(t));
-    timers.current = [];
+  const stopPolling = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
   };
-  useEffect(() => clear, []);
+  useEffect(() => stopPolling, []);
 
-  const run = useCallback((summary: ImportSummary, willFail: boolean) => {
-    clear();
-    setJob({ ...IDLE, status: 'queued', summary, startedAt: timeNow() });
-    let progress = 0;
-    const tick = () => {
-      progress = Math.min(100, progress + 2 + Math.random() * 3);
-      if (willFail && progress >= FAIL_AT) {
-        setJob((j) => ({ ...j, status: 'failed', progress: FAIL_AT, error: failMessage(summary) }));
-        return;
-      }
-      if (progress >= 100) {
-        setJob((j) => ({ ...j, status: 'completed', progress: 100 }));
-        return;
-      }
-      setJob((j) => ({ ...j, status: 'running', progress }));
-      timers.current.push(window.setTimeout(tick, 140));
-    };
-    timers.current.push(window.setTimeout(tick, 1400));
-  }, []);
+  const poll = useCallback(
+    (id: string) => {
+      const tick = async () => {
+        try {
+          const j = await fetchImportJob(id);
+          const status = j.status as ImportStatus;
+          setJob((cur) => {
+            if (cur.id !== id) return cur;
+            const summary = cur.summary && {
+              ...cur.summary,
+              records: j.validRows || cur.summary.records,
+              skippedRows: j.status === 'completed' ? j.errorRows : cur.summary.skippedRows,
+              version: j.resultVersion ?? cur.summary.version
+            };
+            return {
+              ...cur,
+              status,
+              progress: Math.round((j.progress ?? 0) * 100),
+              summary,
+              error: j.errorMessage ?? null,
+              aggregates: status === 'completed' ? 'done' : cur.aggregates
+            };
+          });
+          if (status === 'completed' || status === 'failed') {
+            queryClient.invalidateQueries({ queryKey: ['population'] });
+            return;
+          }
+        } catch (e) {
+          setJob((cur) => cur.id === id ? { ...cur, status: 'failed', error: e instanceof Error ? e.message : 'Lost contact with the import.' } : cur);
+          return;
+        }
+        timer.current = window.setTimeout(tick, POLL_MS);
+      };
+      stopPolling();
+      timer.current = window.setTimeout(tick, POLL_MS);
+    },
+    [queryClient]
+  );
 
-  const start = (summary: ImportSummary) => run(summary, outcome === 'fail');
-  // A retry is a fresh attempt; in the demo it always succeeds.
+  const run = useCallback(
+    async (summary: ImportSummary, input: StartImportInput) => {
+      stopPolling();
+      lastInput.current = { summary, input };
+      setJob({ ...IDLE, status: 'queued', summary, startedAt: timeNow() });
+      try {
+        const created = await startImport(input);
+        setJob((cur) => ({ ...cur, id: created.id, status: created.status as ImportStatus }));
+        queryClient.invalidateQueries({ queryKey: populationKeys.imports });
+        poll(created.id);
+      } catch (e) {
+        setJob((cur) => ({ ...cur, status: 'failed', error: e instanceof Error ? e.message : 'The upload was not accepted.' }));
+      }
+    },
+    [poll, queryClient]
+  );
+
+  const start = (summary: ImportSummary, input: StartImportInput) => void run(summary, input);
   const retry = () => {
-    if (job.summary) run(job.summary, false);
+    if (lastInput.current) void run(lastInput.current.summary, lastInput.current.input);
   };
-
-  const computeAggregates = () => {
-    setJob((j) => ({ ...j, aggregates: 'running' }));
-    timers.current.push(window.setTimeout(() => setJob((j) => ({ ...j, aggregates: 'done' })), 2200));
-  };
-
+  const computeAggregates = () => setJob((j) => ({ ...j, aggregates: 'done' }));
   const reset = () => {
-    clear();
+    stopPolling();
+    lastInput.current = null;
     setJob(IDLE);
   };
 

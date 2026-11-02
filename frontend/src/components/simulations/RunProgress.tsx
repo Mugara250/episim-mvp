@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, BarChart3, Check, Copy, GitCompare, Loader2, Plus, RotateCcw, X } from 'lucide-react';
-import { Scenario } from '../../types/scenarios';
-import { SimulationRun } from '../../types/simulationRuns';
-import { findPreset } from '../../utils/scenarios';
-import { formatCount, formatDuration, isActive } from '../../utils/simulationRuns';
+import { AlertCircle, BarChart3, Check, Copy, GitCompare, Loader2, Map as MapIcon, Plus, RotateCcw, X } from 'lucide-react';
+import { Range, SimulationRun } from '../../types/simulationRuns';
+import { formatCount, formatDuration, isActive, MODEL_LABELS } from '../../utils/simulationRuns';
 
 interface RunProgressProps {
   run: SimulationRun;
-  scenario: Scenario | undefined;
   canRun: boolean;
+  cancelling?: boolean;
   canEditScenario: boolean;
   onCancel: () => void;
   onViewResults: () => void;
+  onMap: () => void;
   onCompare: () => void;
   onRunAgain: () => void;
   onTryAgain: () => void;
@@ -73,9 +72,10 @@ const secondaryBtn =
 const primaryBtn = 'bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-[13px] font-semibold flex items-center gap-2 transition-colors';
 
 export function RunProgress(p: RunProgressProps) {
-  const { run, scenario } = p;
+  const { run } = p;
   const elapsed = useElapsed(run);
-  const disease = findPreset(scenario?.presetId ?? null)?.name;
+  const r = run.summary?.ranges;
+  const span = (x: Range | undefined) => x ? `${formatCount(Math.round(x.low))}–${formatCount(Math.round(x.high))} (5–95%)` : '';
   const day = Math.round(run.progress * run.horizonDays);
 
   return (
@@ -90,10 +90,10 @@ export function RunProgress(p: RunProgressProps) {
       <div className="p-6 md:p-8 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[12px] text-text-secondary">{run.id} · {disease ?? 'Unknown disease'}</p>
-            <h2 id="run-title" className="text-h3 text-text-primary truncate">{scenario?.name ?? 'Scenario no longer available'}</h2>
+            <p className="text-[12px] text-text-secondary">{run.id} · {run.presetName ?? 'Unknown disease'}{run.provisional ? ' (provisional)' : ''} · {MODEL_LABELS[run.modelType]}</p>
+            <h2 id="run-title" className="text-h3 text-text-primary truncate">{run.scenarioName}</h2>
             <p className="text-[13px] text-text-secondary mt-1 tabular-nums">
-              {run.horizonDays} days · {run.initialCases} initial {run.initialCases === 1 ? 'case' : 'cases'}
+              {run.horizonDays} days · {run.initialCases} initial {run.initialCases === 1 ? 'case' : 'cases'} · {run.monteCarloRuns} runs · seed {run.seed}
             </p>
           </div>
           <div className="text-right">
@@ -125,10 +125,10 @@ export function RunProgress(p: RunProgressProps) {
         <div>
             <dl className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl overflow-hidden border border-border bg-border">
               {[
-            { label: 'Peak infectious', value: formatCount(run.summary.peakInfectious), hint: 'people at once' },
-            { label: 'Peak day', value: `Day ${run.summary.peakDay}`, hint: run.summary.peakDay >= run.horizonDays ? 'still rising at the end' : 'after day 0' },
-            { label: 'Cumulative deaths', value: formatCount(run.summary.deaths), hint: `by day ${run.horizonDays}` },
-            { label: 'Final recovered', value: formatCount(run.summary.recovered), hint: `by day ${run.horizonDays}` }].
+            { label: 'Peak infectious', value: formatCount(run.summary.peakInfectious), hint: span(r?.peakInfectious) || 'people at once' },
+            { label: 'Peak day', value: `Day ${run.summary.peakDay}`, hint: run.summary.peakDay >= run.horizonDays ? 'still rising at the end' : 'median of runs' },
+            { label: 'Cumulative deaths', value: formatCount(run.summary.deaths), hint: span(r?.finalDeaths) || `by day ${run.horizonDays}` },
+            { label: 'Final recovered', value: formatCount(run.summary.recovered), hint: span(r?.recovered) || `by day ${run.horizonDays}` }].
             map((t) =>
             <div key={t.label} className="bg-surface p-4">
                   <dt className="text-[12px] text-text-secondary">{t.label}</dt>
@@ -137,7 +137,10 @@ export function RunProgress(p: RunProgressProps) {
                 </div>
             )}
             </dl>
-            <p className="text-[11px] text-text-secondary mt-2">Expected course from illustrative placeholder values. Real outbreaks vary.</p>
+            <p className="text-[11px] text-text-secondary mt-2">
+              Scenario estimates, not forecasts. Medians across {run.monteCarloRuns} runs; ranges are the 5th–95th percentile.
+              {run.provisional ? ' Disease parameters are provisional.' : ''}
+            </p>
           </div>
         }
 
@@ -157,8 +160,8 @@ export function RunProgress(p: RunProgressProps) {
       <div className="px-6 md:px-8 py-4 border-t border-border flex flex-wrap items-center gap-3">
         {isActive(run.status) ?
         p.canRun &&
-        <button onClick={p.onCancel} className={`${secondaryBtn} ml-auto`}>
-              <X size={15} /> Cancel run
+        <button onClick={p.onCancel} disabled={p.cancelling} className={`${secondaryBtn} ml-auto disabled:opacity-50`}>
+              {p.cancelling ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />} Cancel run
             </button> :
 
 
@@ -174,6 +177,11 @@ export function RunProgress(p: RunProgressProps) {
                   {p.canRun &&
               <button onClick={p.onRunAgain} className={secondaryBtn}>
                       <RotateCcw size={15} /> Run again
+                    </button>
+              }
+                  {run.modelType === 'seihfr_geo' &&
+              <button onClick={p.onMap} className={secondaryBtn}>
+                      <MapIcon size={15} /> Open on map
                     </button>
               }
                   <button onClick={p.onCompare} className={secondaryBtn}>

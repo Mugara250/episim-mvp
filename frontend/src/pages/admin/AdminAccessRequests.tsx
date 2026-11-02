@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Inbox } from 'lucide-react';
 import { AccessRequestCard } from '../../components/admin/AccessRequestCard';
 import { PresetToasts } from '../../components/presets/PresetToasts';
@@ -6,12 +6,13 @@ import { useToasts } from '../../hooks/useToasts';
 import { useAccountRequests } from '../../context/AccountRequestContext';
 import { ROLE_LABELS } from '../../lib/rbac';
 import { AccountRequestStatus } from '../../types/accountRequests';
+import { QueryState } from '../../components/officer/DataState';
 
 type Tab = AccountRequestStatus | 'All';
 const TABS: Tab[] = ['Pending', 'Approved', 'Rejected', 'All'];
 
 export function AdminAccessRequests() {
-  const { requests, approveRequest, rejectRequest, markAllSeen } = useAccountRequests();
+  const { requests, approveRequest, rejectRequest, markAllSeen, isLoading, error } = useAccountRequests();
   const [activeTab, setActiveTab] = useState<Tab>('Pending');
   const toasts = useToasts();
 
@@ -51,6 +52,7 @@ export function AdminAccessRequests() {
         )}
       </div>
 
+      <QueryState isLoading={isLoading} error={error}>
       {visible.length === 0 ?
       <div className="bg-surface rounded-xl border border-border p-12 text-center">
           <Inbox size={32} className="mx-auto text-text-secondary mb-3" />
@@ -65,18 +67,28 @@ export function AdminAccessRequests() {
         <AccessRequestCard
           key={req.id}
           request={req}
-          onApprove={(role, hospitalId) => {
-            approveRequest(req.id, role, hospitalId);
-            toasts.push('success', `${req.name} approved as ${ROLE_LABELS[role]}. Account created and ${req.email} notified they can sign in.`);
+          onApprove={async (role, hospitalId) => {
+            try {
+              await approveRequest(req.id, role, hospitalId);
+              // No email is sent in the demo; the requester sees the new status on the sign-in page.
+              toasts.push('success', `${req.name} approved as ${ROLE_LABELS[role]}. Account created; they can now sign in with the password they chose.`);
+            } catch (e) {
+              toasts.push('error', e instanceof Error ? e.message : 'The request could not be approved.');
+            }
           }}
-          onReject={(reason) => {
-            rejectRequest(req.id, reason);
-            toasts.push('info', `Request from ${req.name} rejected. They’ve been notified with your reason.`);
+          onReject={async (reason) => {
+            try {
+              await rejectRequest(req.id, reason);
+              toasts.push('info', `Request from ${req.name} rejected. They’ll see your reason when they check their status.`);
+            } catch (e) {
+              toasts.push('error', e instanceof Error ? e.message : 'The request could not be rejected.');
+            }
           }} />
 
         )}
         </div>
       }
+      </QueryState>
     </div>);
 
 }

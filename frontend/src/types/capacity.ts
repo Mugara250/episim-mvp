@@ -22,6 +22,11 @@ export interface CapacityProfile {
   updatedBy: string;
   /** Sample values for design review only. */
   placeholder: boolean;
+  institutionName?: string;
+  /** Optional per-district isolation beds, used by Geographic Spread (codes from the boundary file). */
+  districtBeds?: {districtCode: string;beds: number;}[];
+  /** Server-side permission for the signed-in user. */
+  canEdit?: boolean;
 }
 
 /** A saved scenario comparison whose capacity warnings are checked against a profile. */

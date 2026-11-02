@@ -20,6 +20,8 @@ export interface HospitalEntry {
   trainedStaff: number;
   burialTeamReady: boolean;
   contactsFollowUp: number;
+  /** Seeded sample record, not entered by a user. */
+  illustrative?: boolean;
 }
 
 export type InstructionStatus = 'Not started' | 'In progress' | 'Done' | "Can't do";
@@ -34,6 +36,7 @@ export interface Instruction {
   received: string;
   status: InstructionStatus;
   reason?: string;
+  illustrative?: boolean;
 }
 
 export interface PlanAction {
@@ -53,6 +56,7 @@ export interface ResponsePlan {
   actions: PlanAction[];
   notes: string;
   updated: string;
+  illustrative?: boolean;
 }
 
 export interface HospitalReport {
@@ -64,4 +68,8 @@ export interface HospitalReport {
   by: string;
   summary: string;
   figures: {label: string;value: string;range: string;}[];
+  illustrative?: boolean;
+  /** Server-supplied honesty line printed on every report. */
+  estimateNote?: string;
+  exports?: unknown[];
 }

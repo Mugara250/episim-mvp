@@ -1,8 +1,9 @@
-import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { EXAMPLE_PEAK } from '../../data/capacityProfiles';
 import { CapacityDraft } from '../../types/capacity';
 import { fmt, parseWhole } from '../../utils/capacity';
+
+/** An invented outbreak peak, only to show how the check reads. Real checks use completed runs. */
+const EXAMPLE_PEAK = { hospitalBeds: 310, icuBeds: 22, testsPerDay: 260 };
 
 const ROWS: {key: keyof typeof EXAMPLE_PEAK;label: string;unit: string;}[] = [
 { key: 'hospitalBeds', label: 'Hospital beds', unit: 'beds' },
@@ -15,7 +16,7 @@ export function GapPreview({ draft }: {draft: CapacityDraft;}) {
     <section className="bg-surface rounded-xl border border-border p-6" aria-labelledby="gap-title">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 id="gap-title" className="text-h3 text-text-primary">How this profile will be used</h3>
-        <span className="text-[12px] text-text-secondary">Example only - real comparisons appear in Analysis &amp; Comparison</span>
+        <span className="text-[12px] text-text-secondary">Illustrative example, not a simulation result. Real checks appear on run results, Scenario Comparison and Geographic Spread</span>
       </div>
       <p className="text-[13px] text-text-secondary mt-1">
         Each simulation’s projected peak is checked against these numbers. Here is one example outbreak.

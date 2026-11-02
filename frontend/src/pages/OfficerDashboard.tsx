@@ -1,13 +1,12 @@
-import React from 'react';
 import { AlertTriangle, ArrowRight, ChevronRight } from 'lucide-react';
 import { useOfficer } from '../context/OfficerContext';
 import { BedOccupancyChart } from '../components/officer/BedOccupancyChart';
 import { InstructionStatusBadge } from '../components/officer/InstructionStatus';
-import { ownHospital } from '../data/hospital';
+import { IllustrativeBadge, QueryState } from '../components/officer/DataState';
 import { formatDay, latestBeds, latestFor, OCCUPANCY_WARNING } from '../utils/hospital';
 
 export function OfficerDashboard({ onNavigate }: {onNavigate?: (route: string) => void;}) {
-  const { entries, instructions } = useOfficer();
+  const { hospital, entries, instructions, isLoading, error } = useOfficer();
   const go = (r: string) => onNavigate?.(r);
   const beds = latestBeds(entries);
   const occupancy = beds && beds.total > 0 ? beds.occupied / beds.total : 0;
@@ -21,11 +20,18 @@ export function OfficerDashboard({ onNavigate }: {onNavigate?: (route: string) =
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
       <div className="mb-2">
-        <h1 className="text-h1 text-text-primary mb-1">{ownHospital.name}</h1>
+        <h1 className="text-h1 text-text-primary mb-1">{hospital?.name ?? 'Your hospital'}</h1>
         <p className="text-body text-text-secondary">
-          {ownHospital.district} district · your hospital only. Counts are as reported by your team; projections are estimates with ranges.
+          {hospital?.district ?? '—'} district · your hospital only. Counts are as reported by your team; projections are estimates with ranges.
         </p>
+        {entries.some((e) => e.illustrative) &&
+        <p className="mt-2 flex items-center gap-2 text-[12px] text-text-secondary">
+            <IllustrativeBadge /> Seeded sample counts, not real hospital data.
+          </p>
+        }
       </div>
+
+      <QueryState isLoading={isLoading} error={error}>
 
       {high && beds &&
       <div role="alert" className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-5 py-4">
@@ -117,6 +123,7 @@ export function OfficerDashboard({ onNavigate }: {onNavigate?: (route: string) =
           </ul>
         </section>
       </div>
+      </QueryState>
     </div>);
 
 }

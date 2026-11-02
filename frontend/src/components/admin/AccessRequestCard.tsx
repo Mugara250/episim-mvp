@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Check, X, Building2, Hash, Briefcase, Mail } from 'lucide-react';
 import { useAdmin } from '../../context/AdminContext';
 import { ROLE_LABELS, Role } from '../../lib/rbac';
@@ -7,8 +7,8 @@ import { formatDateTime, timeAgo } from '../../utils/accountRequests';
 
 interface AccessRequestCardProps {
   request: AccountRequest;
-  onApprove: (role: Role, hospitalId?: string) => void;
-  onReject: (reason: string) => void;
+  onApprove: (role: Role, hospitalId?: string) => void | Promise<void>;
+  onReject: (reason: string) => void | Promise<void>;
 }
 
 const ASSIGNABLE_ROLES: Role[] = ['analyst', 'officer', 'policymaker'];

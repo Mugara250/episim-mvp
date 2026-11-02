@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowLeft, ArrowRight, ChevronRight, Lock } from 'lucide-react';
 import { ViewOnlyBadge } from '../components/analyst/Badges';
 import { CheckStep } from '../components/populationImport/CheckStep';

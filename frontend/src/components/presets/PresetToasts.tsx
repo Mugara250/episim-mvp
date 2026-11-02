@@ -1,4 +1,3 @@
-import React from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Info, Loader2, X } from 'lucide-react';
 import { PresetToast } from '../../types/presets';

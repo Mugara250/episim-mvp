@@ -1,18 +1,19 @@
-import React from 'react';
 import { Check } from 'lucide-react';
+import { ScenarioRefs } from '../../api/scenarios';
 import { ScenarioDraft } from '../../types/scenarios';
 import { findDataset, findPackage, findPreset, formatPop } from '../../utils/scenarios';
 
 interface BuilderSummaryProps {
   draft: ScenarioDraft;
+  refs: ScenarioRefs;
   seenInterventions: boolean;
   pinnedVersion?: number | null;
 }
 
-export function BuilderSummary({ draft, seenInterventions, pinnedVersion }: BuilderSummaryProps) {
-  const dataset = findDataset(draft.datasetId);
-  const preset = findPreset(draft.presetId);
-  const pkg = findPackage(draft.packageId);
+export function BuilderSummary({ draft, refs, seenInterventions, pinnedVersion }: BuilderSummaryProps) {
+  const dataset = findDataset(refs.datasets, draft.datasetId);
+  const preset = findPreset(refs.presets, draft.presetId);
+  const pkg = findPackage(refs.packages, draft.packageId);
   const items = [
   {
     label: 'Population dataset',
@@ -24,7 +25,7 @@ export function BuilderSummary({ draft, seenInterventions, pinnedVersion }: Buil
     label: 'Disease',
     done: !!preset,
     value: preset ? preset.name : 'Required',
-    sub: preset ? `R0 ${preset.r0} · ${preset.builtIn ? 'Built-in' : 'Custom'}` : ''
+    sub: preset ? `R0 ${preset.r0Likely} · ${preset.builtIn ? 'Built-in' : 'Custom'}${preset.provisional ? ' · Provisional' : ''}` : ''
   },
   {
     label: 'Interventions',
@@ -57,7 +58,7 @@ export function BuilderSummary({ draft, seenInterventions, pinnedVersion }: Buil
           </li>
         )}
       </ol>
-      <p className="mt-5 pt-4 border-t border-border text-[12px] text-text-secondary">Model: SEIR (compartmental)</p>
+      <p className="mt-5 pt-4 border-t border-border text-[12px] text-text-secondary">Model: stochastic SEIHFR. National or geographic is chosen when you run it.</p>
     </aside>);
 
 }

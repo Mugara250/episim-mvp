@@ -1,94 +1,116 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
-import { accountRequests } from '../data/accountRequests';
+import { createContext, ReactNode, useContext, useState } from 'react';
+import {
+  fetchRequestStatus,
+  mergeStatus,
+  useAccessRequests,
+  useApproveRequest,
+  useMarkRequestsSeen,
+  useRejectRequest,
+  useRequestStatus,
+  useSubmitRequest } from
+'../api/accessRequests';
 import { Role } from '../lib/rbac';
 import { AccountRequest, AccountRequestInput } from '../types/accountRequests';
-import { useAdmin } from './AdminContext';
-import { useAuth } from './AuthContext';
+
+// Account requests are stored on the server. This context keeps one piece of browser state:
+// the request submitted from this browser, so the requester sees its status on Request Account
+// and Login without signing in.
+
+type MyRequest = Omit<AccountRequest, 'status' | 'seenByAdmin'>;
 
 interface AccountRequestContextType {
+  /** All requests (administrators only; empty for everyone else). */
   requests: AccountRequest[];
+  isLoading: boolean;
+  error: Error | null;
   pendingCount: number;
   unseenCount: number;
-  /** The request submitted from this browser session, so the requester can be notified. */
+  /** The request submitted from this browser, with its live status. */
   myRequest?: AccountRequest;
-  submitRequest: (input: AccountRequestInput) => AccountRequest;
-  approveRequest: (id: string, role: Role, hospitalId?: string) => void;
-  rejectRequest: (id: string, reason: string) => void;
+  submitRequest: (input: AccountRequestInput) => Promise<AccountRequest>;
+  approveRequest: (id: string, role: Role, hospitalId?: string) => Promise<unknown>;
+  rejectRequest: (id: string, reason: string) => Promise<unknown>;
   markAllSeen: () => void;
-  findByEmail: (email: string) => AccountRequest | undefined;
-  emailInUse: (email: string) => boolean;
+  /** Server lookup of the latest request for an email (used when sign-in fails). */
+  lookupRequest: (email: string) => Promise<AccountRequest | undefined>;
 }
 
 const AccountRequestContext = createContext<AccountRequestContextType | undefined>(undefined);
+const MY_REQUEST_KEY = 'episim.myAccountRequest';
+
+function loadMine(): MyRequest | null {
+  try {
+    const raw = window.sessionStorage.getItem(MY_REQUEST_KEY);
+    return raw ? JSON.parse(raw) as MyRequest : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveMine(r: MyRequest) {
+  try {
+    window.sessionStorage.setItem(MY_REQUEST_KEY, JSON.stringify(r));
+  } catch {
+    // Storage blocked: the status banner lasts until reload.
+  }
+}
 
 export function AccountRequestProvider({ children }: {children: ReactNode;}) {
-  const { userName } = useAuth();
-  const { saveUser, users } = useAdmin();
-  const [requests, setRequests] = useState<AccountRequest[]>(accountRequests);
-  const [myRequestId, setMyRequestId] = useState<string | null>(null);
+  const listQ = useAccessRequests();
+  const submitM = useSubmitRequest();
+  const approveM = useApproveRequest();
+  const rejectM = useRejectRequest();
+  const seenM = useMarkRequestsSeen();
+  const [mine, setMine] = useState<MyRequest | null>(loadMine);
+  const statusQ = useRequestStatus(mine?.email);
 
-  const normalise = (email: string) => email.trim().toLowerCase();
-
-  const findByEmail = (email: string) =>
-  requests.find((r) => normalise(r.email) === normalise(email));
-
-  const emailInUse = (email: string) =>
-  users.some((u) => normalise(u.email) === normalise(email)) ||
-  requests.some((r) => normalise(r.email) === normalise(email) && r.status !== 'Rejected');
-
-  const submitRequest = (input: AccountRequestInput) => {
-    const request: AccountRequest = {
-      ...input,
-      email: input.email.trim(),
-      id: `REQ-${1028 + requests.length}`,
-      status: 'Pending',
-      submittedAt: new Date().toISOString(),
-      seenByAdmin: false
-    };
-    setRequests((list) => [request, ...list]);
-    setMyRequestId(request.id);
-    return request;
-  };
-
-  const approveRequest = (id: string, role: Role, hospitalId?: string) => {
-    const req = requests.find((r) => r.id === id);
-    if (!req) return;
-    setRequests((list) =>
-    list.map((r) =>
-    r.id === id ?
-    { ...r, status: 'Approved', assignedRole: role, decidedAt: new Date().toISOString(), decidedBy: userName, seenByAdmin: true } :
-    r
-    )
-    );
-    saveUser({
-      name: req.name,
-      email: req.email,
-      role,
-      organisation: req.institution,
-      hospitalId,
-      status: 'Active'
-    });
-  };
-
-  const rejectRequest = (id: string, reason: string) =>
-  setRequests((list) =>
-  list.map((r) =>
-  r.id === id ?
-  { ...r, status: 'Rejected', rejectionReason: reason, decidedAt: new Date().toISOString(), decidedBy: userName, seenByAdmin: true } :
-  r
-  )
-  );
-
-  const markAllSeen = () =>
-  setRequests((list) => list.some((r) => !r.seenByAdmin) ? list.map((r) => ({ ...r, seenByAdmin: true })) : list);
-
+  const requests = listQ.data ?? [];
   const pendingCount = requests.filter((r) => r.status === 'Pending').length;
   const unseenCount = requests.filter((r) => r.status === 'Pending' && !r.seenByAdmin).length;
-  const myRequest = requests.find((r) => r.id === myRequestId);
+  const myRequest = mine ? mergeStatus(mine, statusQ.data) : undefined;
+
+  const submitRequest = async (input: AccountRequestInput) => {
+    const res = await submitM.mutateAsync(input);
+    const stored: MyRequest = {
+      id: res.id,
+      name: input.name.trim(),
+      email: res.email,
+      institution: input.institution,
+      institutionAccountId: input.institutionAccountId,
+      position: input.position,
+      submittedAt: res.submittedAt
+    };
+    saveMine(stored);
+    setMine(stored);
+    return mergeStatus(stored, { ...res, name: stored.name, status: 'Pending' });
+  };
+
+  const lookupRequest = async (email: string) => {
+    const s = await fetchRequestStatus(email);
+    if (!s) return undefined;
+    return mergeStatus(
+      { id: s.id, name: s.name, email: s.email, institution: '', institutionAccountId: '', position: '', submittedAt: s.submittedAt },
+      s
+    );
+  };
 
   return (
     <AccountRequestContext.Provider
-      value={{ requests, pendingCount, unseenCount, myRequest, submitRequest, approveRequest, rejectRequest, markAllSeen, findByEmail, emailInUse }}>
+      value={{
+        requests,
+        isLoading: listQ.isLoading,
+        error: listQ.error as Error | null,
+        pendingCount,
+        unseenCount,
+        myRequest,
+        submitRequest,
+        approveRequest: (id, role, hospitalId) => approveM.mutateAsync({ id, role, institutionId: hospitalId }),
+        rejectRequest: (id, reason) => rejectM.mutateAsync({ id, reason }),
+        markAllSeen: () => {
+          if (unseenCount > 0 && !seenM.isPending) seenM.mutate();
+        },
+        lookupRequest
+      }}>
       
       {children}
     </AccountRequestContext.Provider>);

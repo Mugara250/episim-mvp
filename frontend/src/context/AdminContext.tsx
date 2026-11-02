@@ -1,100 +1,82 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
-import { adminHospitals } from '../data/adminHospitals';
-import { adminUsers } from '../data/adminUsers';
-import { auditLog } from '../data/auditLog';
-import { ROLE_LABELS } from '../lib/rbac';
-import { AdminUser, AuditAction, AuditEntry, Hospital } from '../types/admin';
-import { useAuth } from './AuthContext';
+import { ReactNode } from 'react';
+import {
+  HospitalInput,
+  UserInput,
+  useAdminHospitals,
+  useAdminUsers,
+  useInstitutions,
+  useSaveHospital,
+  useSaveUser,
+  useSetUserStatus } from
+'../api/admin';
+import { AdminUser } from '../types/admin';
 
-type UserInput = Omit<AdminUser, 'id' | 'lastLogin'>;
-type HospitalInput = Omit<Hospital, 'id' | 'registered'>;
-
-interface AdminContextType {
-  users: AdminUser[];
-  hospitals: Hospital[];
-  audit: AuditEntry[];
-  saveUser: (input: UserInput, id?: string) => void;
-  toggleStatus: (id: string) => void;
-  saveHospital: (input: HospitalInput, officerId: string, id?: string) => void;
-  officersAt: (hospitalId: string) => AdminUser[];
-  hospitalName: (id?: string) => string;
-}
-
-const AdminContext = createContext<AdminContextType | undefined>(undefined);
-
-function stamp() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+// Admin data lives in the database (Module 14). The provider is kept so the app shell doesn't
+// change; useAdmin composes TanStack Query hooks that share one cache.
 
 export function AdminProvider({ children }: {children: ReactNode;}) {
-  const { userName } = useAuth();
-  const [users, setUsers] = useState<AdminUser[]>(adminUsers);
-  const [hospitals, setHospitals] = useState<Hospital[]>(adminHospitals);
-  const [audit, setAudit] = useState<AuditEntry[]>(auditLog);
-
-  const log = (action: AuditAction, target: string, details: string) =>
-  setAudit((list) => [
-  { id: `A-${Date.now()}`, time: stamp(), user: userName, role: 'Admin', action, target, details },
-  ...list]
-  );
-
-  const hospitalName = (id?: string) => hospitals.find((h) => h.id === id)?.name ?? '—';
-
-  const saveUser = (input: UserInput, id?: string) => {
-    const clean: UserInput = { ...input, hospitalId: input.role === 'officer' ? input.hospitalId : undefined };
-    if (id) {
-      const before = users.find((u) => u.id === id);
-      setUsers((list) => list.map((u) => u.id === id ? { ...u, ...clean } : u));
-      const changes: string[] = [];
-      if (before && before.role !== clean.role) changes.push(`Role ${ROLE_LABELS[before.role]} → ${ROLE_LABELS[clean.role]}`);
-      if (before && before.hospitalId !== clean.hospitalId && clean.hospitalId) changes.push(`Hospital set to ${hospitalName(clean.hospitalId)}`);
-      log('User updated', clean.name, changes.join('; ') || 'Details updated');
-    } else {
-      setUsers((list) => [...list, { ...clean, id: `U-${Date.now()}`, lastLogin: 'Never' }]);
-      log('User created', clean.name, `${ROLE_LABELS[clean.role]}${clean.hospitalId ? ` · ${hospitalName(clean.hospitalId)}` : ''}`);
-    }
-  };
-
-  const toggleStatus = (id: string) => {
-    const u = users.find((x) => x.id === id);
-    if (!u) return;
-    const next = u.status === 'Active' ? 'Inactive' : 'Active';
-    setUsers((list) => list.map((x) => x.id === id ? { ...x, status: next } : x));
-    log('Account status changed', u.name, `${u.status} → ${next}`);
-  };
-
-  const saveHospital = (input: HospitalInput, officerId: string, id?: string) => {
-    const hospitalId = id ?? `H-${Date.now()}`;
-    if (id) {
-      setHospitals((list) => list.map((h) => h.id === id ? { ...h, ...input } : h));
-      log('Hospital updated', input.name, `${input.district} · ${input.isolationBeds} isolation beds`);
-    } else {
-      const today = stamp().slice(0, 10);
-      setHospitals((list) => [...list, { ...input, id: hospitalId, registered: today }]);
-      log('Hospital registered', input.name, `${input.district} · ${input.isolationBeds} isolation beds`);
-    }
-    if (officerId) {
-      const officer = users.find((u) => u.id === officerId);
-      if (officer && officer.hospitalId !== hospitalId) {
-        setUsers((list) => list.map((u) => u.id === officerId ? { ...u, hospitalId } : u));
-        log('User updated', officer.name, `Hospital set to ${input.name}`);
-      }
-    }
-  };
-
-  const officersAt = (hospitalId: string) => users.filter((u) => u.role === 'officer' && u.hospitalId === hospitalId);
-
-  return (
-    <AdminContext.Provider value={{ users, hospitals, audit, saveUser, toggleStatus, saveHospital, officersAt, hospitalName }}>
-      {children}
-    </AdminContext.Provider>);
-
+  return <>{children}</>;
 }
 
 export function useAdmin() {
-  const ctx = useContext(AdminContext);
-  if (!ctx) throw new Error('useAdmin must be used within AdminProvider');
-  return ctx;
+  const usersQ = useAdminUsers();
+  const hospitalsQ = useAdminHospitals();
+  const institutionsQ = useInstitutions();
+  const saveUserM = useSaveUser();
+  const statusM = useSetUserStatus();
+  const saveHospitalM = useSaveHospital();
+
+  const users = usersQ.data ?? [];
+  const hospitals = hospitalsQ.data ?? [];
+  const hospitalIds = new Set(hospitals.map((h) => h.id));
+  /** Non-hospital organisations a user can belong to. */
+  const organisations = (institutionsQ.data ?? []).filter((i) => !hospitalIds.has(i.id) && !/hospital/i.test(i.kind));
+
+  const hospitalName = (id?: string) => hospitals.find((h) => h.id === id)?.name ?? '—';
+  const officersAt = (hospitalId: string) => users.filter((u) => u.role === 'officer' && u.hospitalId === hospitalId);
+
+  const saveUser = (input: UserInput, id?: string) => saveUserM.mutateAsync({ input, id });
+
+  const toggleStatus = (id: string) => {
+    const u = users.find((x) => x.id === id);
+    if (!u) return Promise.resolve(undefined);
+    return statusM.mutateAsync({ id, status: u.status === 'Active' ? 'Inactive' : 'Active' });
+  };
+
+  /** Saves the hospital, then (optionally) assigns an officer to it. */
+  const saveHospital = async (input: HospitalInput, officerId: string, id?: string) => {
+    const saved = await saveHospitalM.mutateAsync({ input, id });
+    const officer = officerId ? users.find((u) => u.id === officerId) : undefined;
+    if (officer && officer.hospitalId !== saved.id) {
+      await saveUserM.mutateAsync({ id: officer.id, input: toInput(officer, { institutionId: saved.id }) });
+    }
+    return saved;
+  };
+
+  return {
+    users,
+    hospitals,
+    organisations,
+    isLoading: usersQ.isLoading || hospitalsQ.isLoading,
+    error: (usersQ.error ?? hospitalsQ.error) as Error | null,
+    saveUser,
+    toggleStatus,
+    saveHospital,
+    officersAt,
+    hospitalName,
+    saving: saveUserM.isPending || statusM.isPending || saveHospitalM.isPending
+  };
+}
+
+/** Rebuilds the full user body the server expects from a listed user. */
+export function toInput(u: AdminUser, patch: Partial<UserInput> = {}): UserInput {
+  return {
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    institutionId: u.institutionId,
+    status: u.status,
+    canEditBuiltins: u.canEditBuiltins,
+    ...patch
+  };
 }

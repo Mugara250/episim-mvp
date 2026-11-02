@@ -1,6 +1,4 @@
-import React from 'react';
 import { AlertTriangle, BedDouble, Eye, FlaskConical, Loader2, Lock, Syringe, Users } from 'lucide-react';
-import { institutions } from '../../data/capacityProfiles';
 import { CapacityState } from '../../hooks/useCapacityProfiles';
 import { CapacityDraft } from '../../types/capacity';
 import { fmt, parseWhole } from '../../utils/capacity';
@@ -43,8 +41,8 @@ export function ProfileDetail({ s }: {s: CapacityState;}) {
   const ro = !s.canEdit;
   const e = s.errors;
   const set = (patch: Partial<CapacityDraft>) => s.setDraft({ ...d, ...patch });
-  const inst = institutions.find((i) => i.id === d.institutionId);
-  const ownInst = institutions.find((i) => i.id === s.ownInstitution);
+  const inst = s.institutions.find((i) => i.id === d.institutionId);
+  const ownInst = s.institutions.find((i) => i.id === s.ownInstitution);
   const inUse = s.comparisons.length > 0;
 
   const summary = [
@@ -100,7 +98,7 @@ export function ProfileDetail({ s }: {s: CapacityState;}) {
                   }>
                   
                     <option value="">Choose an institution or region</option>
-                    {institutions.map((i) =>
+                    {s.institutions.map((i) =>
                   <option key={i.id} value={i.id}>
                         {i.name} · {i.kind}
                       </option>
@@ -212,7 +210,7 @@ export function ProfileDetail({ s }: {s: CapacityState;}) {
           </div>
 
           {s.selected?.placeholder &&
-          <p className="xl:col-span-2 text-[12px] text-text-secondary">These numbers are illustrative placeholders, not official figures.</p>
+          <p className="xl:col-span-2 text-[12px] text-text-secondary">Illustrative: these numbers are placeholders for the demo, not official figures.</p>
           }
         </div>
       </section>

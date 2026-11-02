@@ -1,4 +1,3 @@
-import React from 'react';
 import { Github, Linkedin, Mail, Twitter } from 'lucide-react';
 import { footerColumns } from '../../data/landing';
 import { LandingLogo } from './LandingNav';

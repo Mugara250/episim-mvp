@@ -1,16 +1,19 @@
-import React from 'react';
-import { FolderOpen, Lock, PlayCircle } from 'lucide-react';
-import { SimulationForm } from '../../hooks/useSimulationForm';
+import { FolderOpen, Loader2, Lock, PlayCircle } from 'lucide-react';
+import { useScenarioRefs } from '../../api/scenarios';
+import { useDistrictOptions } from '../../api/simulations';
+import { DEFAULT_HCW, SimulationForm } from '../../hooks/useSimulationForm';
 import { Scenario } from '../../types/scenarios';
-import { HORIZON_CHOICES } from '../../utils/simulationRuns';
+import { HcwSettings, ModelType } from '../../types/simulationRuns';
+import { HORIZON_CHOICES, MODEL_LABELS } from '../../utils/simulationRuns';
 import { ScenarioPicker } from './ScenarioPicker';
 import { WhatWillRun } from './WhatWillRun';
 
 interface NewSimulationCardProps {
   form: SimulationForm;
   scenarios: Scenario[];
-  userName: string;
+  userId: string;
   readOnly: boolean;
+  starting?: boolean;
   onRun: () => void;
   onOpenLibrary?: () => void;
 }
@@ -20,7 +23,33 @@ const fieldCls = (error?: string) =>
 error ? 'border-danger focus:border-danger' : 'border-border focus:border-primary'}`;
 
 
-export function NewSimulationCard({ form, scenarios, userName, readOnly, onRun, onOpenLibrary }: NewSimulationCardProps) {
+const MODEL_HELP: Record<ModelType, string> = {
+  seihfr: 'One well-mixed population: the whole dataset as a single area.',
+  seihfr_geo: 'Each district runs its own outbreak, linked by estimated travel between districts (gravity model).'
+};
+
+const HCW_FIELDS: {key: keyof HcwSettings;label: string;min: number;max: number;step: number;pct?: boolean;}[] = [
+{ key: 'pool', label: 'Health workers in the area', min: 1, max: 100000, step: 1 },
+{ key: 'ppeBefore', label: 'Protection before recognition', min: 0, max: 1, step: 0.05, pct: true },
+{ key: 'ppeAfter', label: 'Protection after recognition', min: 0, max: 1, step: 0.05, pct: true },
+{ key: 'recognitionDay', label: 'Day the outbreak is recognised', min: 0, max: 365, step: 1 }];
+
+
+export function NewSimulationCard({ form, scenarios, userId, readOnly, starting, onRun, onOpenLibrary }: NewSimulationCardProps) {
+  const geo = form.modelType === 'seihfr_geo';
+  const districts = useDistrictOptions(geo);
+  const allowed = form.scenario?.districtCodes ?? [];
+  const districtList = (districts.data ?? []).filter((d) => !allowed.length || allowed.includes(d.code));
+  const refs = useScenarioRefs();
+  const preset = refs.presets.find((p) => p.id === form.scenario?.presetId);
+  const hcwDefaults: HcwSettings = preset ?
+  { pool: DEFAULT_HCW.pool, ppeBefore: preset.hcwPpeBefore, ppeAfter: preset.hcwPpeAfter, recognitionDay: preset.hcwRecognitionDay } :
+  DEFAULT_HCW;
+  const setHcwField = (key: keyof HcwSettings, raw: string) => {
+    const v = Number(raw);
+    if (Number.isNaN(v)) return;
+    form.setHcw({ ...(form.hcw ?? hcwDefaults), [key]: v });
+  };
   const horizonNum = Number(form.horizon);
   const custom = !HORIZON_CHOICES.includes(horizonNum);
 
@@ -51,7 +80,7 @@ export function NewSimulationCard({ form, scenarios, userName, readOnly, onRun, 
             }
             </div> :
 
-          <ScenarioPicker scenarios={scenarios} value={form.scenarioId} onChange={form.setScenarioId} userName={userName} disabled={readOnly} />
+          <ScenarioPicker scenarios={scenarios} value={form.scenarioId} onChange={form.setScenarioId} userId={userId} disabled={readOnly} />
           }
         </div>
 
@@ -119,6 +148,92 @@ export function NewSimulationCard({ form, scenarios, userName, readOnly, onRun, 
             </p>
           </div>
         </div>
+
+        <fieldset>
+          <legend className="block text-[13px] font-semibold text-text-primary mb-1.5">4. Model</legend>
+          <div role="radiogroup" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(Object.keys(MODEL_LABELS) as ModelType[]).map((m) =>
+            <label
+              key={m}
+              className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${readOnly ? 'opacity-60' : 'cursor-pointer'} ${
+              form.modelType === m ? 'border-primary bg-hover' : 'border-border hover:border-primary/40'}`
+              }>
+              
+                <input
+                type="radio"
+                name="model-type"
+                className="accent-primary mt-1"
+                disabled={readOnly}
+                checked={form.modelType === m}
+                onChange={() => form.setModelType(m)} />
+              
+                <span>
+                  <span className="block text-[13px] font-semibold text-text-primary">{MODEL_LABELS[m]}</span>
+                  <span className="block text-[12px] text-text-secondary">{MODEL_HELP[m]}</span>
+                </span>
+              </label>
+            )}
+          </div>
+          {geo &&
+          <div className="mt-3 max-w-sm">
+              <label htmlFor="sim-district" className="block text-[13px] font-medium text-text-primary mb-1.5">District where the outbreak starts</label>
+              <select
+              id="sim-district"
+              disabled={readOnly || districts.isLoading}
+              value={form.seedDistrictCode ?? ''}
+              onChange={(e) => form.setSeedDistrictCode(e.target.value || null)}
+              aria-invalid={!!form.errors.district}
+              className={fieldCls(form.errors.district)}>
+              
+                <option value="">{districts.isLoading ? 'Loading districts…' : 'Choose a district'}</option>
+                {districtList.map((d) =>
+              <option key={d.code} value={d.code}>{d.name}</option>
+              )}
+              </select>
+              <p className={`text-[12px] mt-1.5 ${form.errors.district ? 'text-danger' : 'text-text-secondary'}`}>
+                {form.errors.district ??
+              (districts.error ?
+              `Districts couldn’t be loaded: ${districts.error.message}` :
+              'Travel between districts is estimated, not measured. It is the largest uncertainty in where the outbreak goes.')}
+              </p>
+            </div>
+          }
+        </fieldset>
+
+        <details className="rounded-lg border border-border bg-background px-4 py-3" open={!!form.hcw}>
+          <summary className="text-[13px] font-semibold text-text-primary cursor-pointer select-none">
+            5. Health-worker settings <span className="font-normal text-text-secondary">· Optional</span>
+          </summary>
+          <p className="text-[12px] text-text-secondary mt-2">
+            {form.hcw ? 'Custom values for this run.' : 'Uses the disease preset’s defaults unless you change a value.'} All defaults are placeholders.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+            {HCW_FIELDS.map((f) => {
+              const value = (form.hcw ?? hcwDefaults)[f.key];
+              return (
+                <div key={f.key}>
+                  <label htmlFor={`hcw-${f.key}`} className="block text-[12px] text-text-secondary mb-1">{f.label}{f.pct ? ' (%)' : ''}</label>
+                  <input
+                    id={`hcw-${f.key}`}
+                    type="number"
+                    disabled={readOnly}
+                    min={f.pct ? 0 : f.min}
+                    max={f.pct ? 100 : f.max}
+                    step={f.pct ? 5 : f.step}
+                    value={f.pct ? Math.round(value * 100) : value}
+                    onChange={(e) => setHcwField(f.key, f.pct ? String(Number(e.target.value) / 100) : e.target.value)}
+                    className={`${fieldCls()} max-w-[160px]`} />
+                  
+                </div>);
+
+            })}
+          </div>
+          {form.hcw &&
+          <button type="button" onClick={() => form.setHcw(null)} className="mt-3 text-[12px] font-semibold text-primary hover:underline">
+              Use the preset defaults
+            </button>
+          }
+        </details>
       </div>
 
       {!readOnly &&
@@ -133,11 +248,11 @@ export function NewSimulationCard({ form, scenarios, userName, readOnly, onRun, 
           <button
           type="button"
           onClick={onRun}
-          disabled={!form.scenario}
+          disabled={!form.scenario || starting}
           title={!form.scenario ? 'Choose a scenario first' : undefined}
           className="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-[13px] font-semibold flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           
-            <PlayCircle size={16} /> Run simulation
+            {starting ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />} Run simulation
           </button>
         </div>
       }

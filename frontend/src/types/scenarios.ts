@@ -1,40 +1,22 @@
+import type { components } from '../api/schema';
+
+type S = components['schemas'];
+
 export type SharePermission = 'view' | 'clone';
 
-export interface ScenarioShare {
-  id: string;
-  kind: 'user' | 'institution';
-  /** User name or institution name */
-  target: string;
-  permission: SharePermission;
-}
+/** A share as returned by the API: `target` is the display name, `targetId` the user or institution id. */
+export type ScenarioShare = S['ShareOut'];
 
-export interface PopulationDataset {
-  id: string;
-  name: string;
-  coverage: string;
-  source: string;
-  population: number;
-  /** Latest imported version */
-  version: number;
-  lastImported: string;
-}
+/** A population dataset option (latest version) for the Scenario Builder. */
+export type PopulationDataset = S['DatasetOut'];
 
-export interface Scenario {
-  id: string;
-  name: string;
-  description: string;
-  datasetId: string | null;
-  /** Pinned when the scenario is saved */
-  datasetVersion: number | null;
-  presetId: string | null;
-  /** null = no interventions */
-  packageId: string | null;
-  owner: string;
-  ownerInstitution: string;
-  created: string;
-  draft: boolean;
-  shares: ScenarioShare[];
-}
+/** A scenario as returned by GET /api/scenarios. `access` is computed by the server for the current user. */
+export type Scenario = S['ScenarioOut'];
+
+/** Disease preset, intervention package and type as the builder shows them (SEIHFR fields). */
+export type PresetRef = S['PresetOut'];
+export type PackageRef = S['PackageOut'];
+export type InterventionTypeRef = S['TypeOut'];
 
 export type Visibility = 'private' | 'institution';
 

@@ -1,8 +1,7 @@
-import React from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import { ArrowRight } from 'lucide-react';
 import { CHART } from '../models/chartTheme';
-import { RtPoint } from '../../lib/models/rt';
+import { RtPoint } from '../../types/simulationRuns';
 
 function dateOf(start: string, day: number) {
   const d = new Date(start);

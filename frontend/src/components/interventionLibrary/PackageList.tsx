@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus } from 'lucide-react';
 import { InterventionPackagesState } from '../../hooks/useInterventionPackages';
 
@@ -38,8 +37,10 @@ export function PackageList({ s }: {s: InterventionPackagesState;}) {
                   {active && s.dirty && <span className="w-2 h-2 rounded-full bg-warning mt-1.5 flex-shrink-0" aria-label="Unsaved changes" />}
                 </div>
                 <p className="text-[12px] text-text-secondary mt-1 line-clamp-2">{p.description || 'No description'}</p>
-                <p className="text-[12px] font-medium text-text-primary mt-2">
+                <p className="text-[12px] font-medium text-text-primary mt-2 flex flex-wrap items-center gap-2">
                   {count} {count === 1 ? 'intervention' : 'interventions'}
+                  {!!p.scenariosUsing && <span className="text-text-secondary font-normal">· used by {p.scenariosUsing}</span>}
+                  {p.illustrative && <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[11px] font-semibold">Illustrative</span>}
                 </p>
               </button>
             </li>);

@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { ROLE_LABELS } from '../../lib/rbac';

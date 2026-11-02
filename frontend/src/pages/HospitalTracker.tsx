@@ -1,20 +1,21 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { CheckCircle2, Pencil, Lock } from 'lucide-react';
 import { useOfficer } from '../context/OfficerContext';
 import { EntryForm } from '../components/officer/EntryForm';
-import { ownHospital } from '../data/hospital';
+import { IllustrativeBadge, QueryState } from '../components/officer/DataState';
 import { HospitalEntry, OfficerDisease } from '../types/officer';
 import { formatDay, latestFor, OCCUPANCY_WARNING } from '../utils/hospital';
 
 type Filter = 'All' | OfficerDisease;
 
 export function HospitalTracker() {
-  const { entries, setEntries } = useOfficer();
+  const { hospital, entries, saveEntry, isLoading, error } = useOfficer();
   const [disease, setDisease] = useState<OfficerDisease>('Ebola');
   const [filter, setFilter] = useState<Filter>('All');
   const [notice, setNotice] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
-  const today = ownHospital.today;
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const today = hospital?.today ?? new Date().toISOString().slice(0, 10);
 
   const existing = entries.find((e) => e.date === today && e.disease === disease);
   const previous = latestFor(entries.filter((e) => e.date < today), disease);
@@ -22,15 +23,19 @@ export function HospitalTracker() {
   filter((e) => filter === 'All' || e.disease === filter).
   sort((a, b) => b.date.localeCompare(a.date) || a.disease.localeCompare(b.disease));
 
-  const submit = (c: Omit<HospitalEntry, 'id' | 'date' | 'disease'>) => {
-    if (existing) {
-      setEntries((list) => list.map((e) => e.id === existing.id ? { ...existing, ...c } : e));
-      setNotice(`Today’s ${disease} entry updated.`);
-    } else {
-      setEntries((list) => [...list, { ...c, id: `${disease[0].toLowerCase()}-${Date.now()}`, date: today, disease }]);
-      setNotice(`Today’s ${disease} entry saved.`);
+  const submit = async (c: Omit<HospitalEntry, 'id' | 'date' | 'disease'>) => {
+    const { illustrative: _ignored, ...counts } = c;
+    setSaveError(null);
+    try {
+      // The server keeps one entry per day and disease, so saving again replaces today's entry.
+      await saveEntry(today, disease, counts);
+      setNotice(`Today’s ${disease} entry ${existing ? 'updated' : 'saved'}.`);
+    } catch (e) {
+      setNotice(null);
+      setSaveError(e instanceof Error ? e.message : 'The entry could not be saved.');
     }
   };
+  const anyIllustrative = entries.some((e) => e.illustrative);
 
   const edit = (e: HospitalEntry) => {
     setDisease(e.disease);
@@ -42,9 +47,20 @@ export function HospitalTracker() {
       <div className="mb-2">
         <h1 className="text-h1 text-text-primary mb-1">Hospital Tracker</h1>
         <p className="text-body text-text-secondary">
-          Daily counts for {ownHospital.name}. These feed Rt tracking and the Epidemiologists’ scenarios.
+          Daily counts for {hospital?.name ?? 'your hospital'}. These feed Rt tracking and the Epidemiologists’ scenarios.
         </p>
+        {anyIllustrative &&
+        <p className="mt-2 flex items-center gap-2 text-[12px] text-text-secondary">
+            <IllustrativeBadge /> Earlier rows are seeded sample counts for the demo, not real hospital data.
+          </p>
+        }
       </div>
+
+      {saveError &&
+      <div role="alert" className="text-[13px] text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">{saveError}</div>
+      }
+
+      <QueryState isLoading={isLoading} error={error}>
 
       {notice &&
       <div role="status" className="flex items-center gap-2 text-[13px] text-success bg-success/10 border border-success/20 rounded-xl px-4 py-3">
@@ -145,6 +161,7 @@ export function HospitalTracker() {
           </table>
         </div>
       </section>
+      </QueryState>
     </div>);
 
 }

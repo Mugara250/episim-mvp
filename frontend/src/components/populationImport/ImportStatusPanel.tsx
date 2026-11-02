@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertCircle, ArrowRight, Calculator, CheckCircle2, Clock, Loader2, RotateCcw, Upload } from 'lucide-react';
 import { ImportJob } from '../../context/ImportJobContext';
 import { formatCount } from '../../utils/populationImport';
@@ -70,7 +69,7 @@ export function ImportStatusPanel({ job, onRetry, onComputeAggregates, onViewDat
                 {failed ? 'Stopped' : 'Importing rows'}
               </p>
               <p className="text-[13px] text-text-secondary tabular-nums">
-                {formatCount(processed)} of {formatCount(sum.records)} · {Math.round(job.progress)}%
+                {failed ? `${formatCount(processed)} of ${formatCount(sum.records)} · ` : ''}{Math.round(job.progress)}%
               </p>
             </div>
             <div
@@ -126,7 +125,7 @@ export function ImportStatusPanel({ job, onRetry, onComputeAggregates, onViewDat
               <div>
                 <p className="text-[15px] font-semibold text-text-primary">Import complete</p>
                 <p className="text-[13px] text-text-secondary mt-1">
-                  {formatCount(sum.records)} {sum.format === 'microdata' ? 'people' : 'rows'} imported for {sum.regionLabel}, {sum.year}.
+                  {formatCount(sum.records)} {sum.format === 'microdata' ? 'people' : 'rows'} imported for {sum.regionLabel}, {sum.year}, as version {sum.version}.
                   {sum.skippedRows > 0 && ` ${formatCount(sum.skippedRows)} rows with errors were left out.`}
                 </p>
               </div>
@@ -141,8 +140,8 @@ export function ImportStatusPanel({ job, onRetry, onComputeAggregates, onViewDat
                   </p>
                   <p className="text-[13px] text-text-secondary mt-1">
                     {job.aggregates === 'done' ?
-                'Population by district, sector, age band and sex: 30 districts, 416 sectors, 17 age bands. The SEIR model can now use this dataset.' :
-                'The SEIR model works with population totals by region and age, so EpiSim needs to add up the individual rows first. This takes a few minutes.'}
+                'District totals were added up from the individual rows during the import. The SEIHFR model can now use this dataset.' :
+                'The SEIHFR model works with population totals by district, which are added up during the import.'}
                   </p>
                 </div>
                 {job.aggregates !== 'done' &&

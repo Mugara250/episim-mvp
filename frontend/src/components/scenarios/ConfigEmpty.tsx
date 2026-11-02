@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowRight, Inbox } from 'lucide-react';
 
 interface ConfigEmptyProps {

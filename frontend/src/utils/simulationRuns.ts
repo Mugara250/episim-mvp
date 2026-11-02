@@ -1,8 +1,4 @@
-import { interventionTypes } from '../data/interventions';
-import { RunStatus, RunSummary } from '../types/simulationRuns';
-import { Scenario } from '../types/scenarios';
-import { findDataset, findPackage, findPreset } from './scenarios';
-import { runSeihfr } from './seihfr';
+import { Range, RunStatus } from '../types/simulationRuns';
 
 export const HORIZON_CHOICES = [30, 60, 90, 180];
 
@@ -15,21 +11,6 @@ export const STATUS_LABELS: Record<RunStatus, string> = {
 };
 
 export const isActive = (s: RunStatus) => s === 'queued' || s === 'running';
-
-/** Summary tiles for a run. Returns null if the scenario's dataset or disease no longer exists. */
-export function summarize(scenario: Scenario | undefined, horizonDays: number, initialCases: number): RunSummary | null {
-  const dataset = findDataset(scenario?.datasetId ?? null);
-  const preset = findPreset(scenario?.presetId ?? null);
-  if (!scenario || !dataset || !preset) return null;
-  return runSeihfr({
-    population: dataset.population,
-    preset,
-    pkg: findPackage(scenario.packageId),
-    types: interventionTypes,
-    horizonDays,
-    initialCases
-  });
-}
 
 export function formatDuration(sec: number) {
   const s = Math.max(0, Math.round(sec));
@@ -64,3 +45,12 @@ export function validateRunForm(horizon: string, initial: string): FormErrors {
   if (n < 1) errors.initial = 'At least 1 person must be infectious at day 0.';
   return errors;
 }
+/** "120 (40–310)": median with the 5–95% range across runs. */
+export function formatRange(r: Range | null | undefined, fmt: (n: number) => string = (n) => formatCount(Math.round(n))) {
+  if (!r) return '—';
+  return `${fmt(r.median)} (${fmt(r.low)}–${fmt(r.high)})`;
+}
+
+export const formatPct = (v: number | null | undefined, digits = 0) => v == null ? '—' : `${(v * 100).toFixed(digits)}%`;
+
+export const MODEL_LABELS = { seihfr: 'National SEIHFR', seihfr_geo: 'Geographic (30 districts)' } as const;

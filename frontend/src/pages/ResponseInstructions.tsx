@@ -1,20 +1,28 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CalendarClock, AlertCircle } from 'lucide-react';
 import { useOfficer } from '../context/OfficerContext';
 import { INSTRUCTION_STATUSES, InstructionStatusBadge } from '../components/officer/InstructionStatus';
-import { ownHospital } from '../data/hospital';
+import { IllustrativeBadge, QueryState } from '../components/officer/DataState';
 import { InstructionStatus } from '../types/officer';
 import { formatDay } from '../utils/hospital';
 
 export function ResponseInstructions() {
-  const { instructions, setInstructions } = useOfficer();
+  const { hospital, instructions, setInstructionStatus, isLoading, error } = useOfficer();
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const today = hospital?.today ?? new Date().toISOString().slice(0, 10);
   const [reasonFor, setReasonFor] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [showError, setShowError] = useState(false);
   const sorted = [...instructions].sort((a, b) => a.deadline.localeCompare(b.deadline));
 
-  const setStatus = (id: string, status: InstructionStatus, why?: string) =>
-  setInstructions((list) => list.map((i) => i.id === id ? { ...i, status, reason: status === "Can't do" ? why : undefined } : i));
+  const setStatus = async (id: string, status: InstructionStatus, why?: string) => {
+    setSaveError(null);
+    try {
+      await setInstructionStatus(id, status, why);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'The status could not be saved.');
+    }
+  };
 
   const choose = (id: string, status: InstructionStatus) => {
     if (status === "Can't do") {
@@ -42,16 +50,26 @@ export function ResponseInstructions() {
       <div className="mb-2">
         <h1 className="text-h1 text-text-primary mb-1">Response Instructions</h1>
         <p className="text-body text-text-secondary">
-          Actions the Epidemiologist team has asked {ownHospital.name} to take. Keep each status up to date so the response plan stays accurate.
+          Actions the Epidemiologist team has asked {hospital?.name ?? 'your hospital'} to take. Keep each status up to date so the response plan stays accurate.
         </p>
+        {instructions.some((i) => i.illustrative) &&
+        <p className="mt-2 flex items-center gap-2 text-[12px] text-text-secondary">
+            <IllustrativeBadge /> Seeded sample instructions for the demo.
+          </p>
+        }
       </div>
 
+      {saveError &&
+      <div role="alert" className="text-[13px] text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">{saveError}</div>
+      }
+
+      <QueryState isLoading={isLoading} error={error}>
       {sorted.length === 0 ?
       <p className="bg-surface rounded-xl border border-border p-10 text-center text-[13px] text-text-secondary">No instructions received yet.</p> :
 
       <ul className="space-y-4">
           {sorted.map((i) => {
-          const overdue = i.deadline < ownHospital.today && i.status !== 'Done' && i.status !== "Can't do";
+          const overdue = i.deadline < today && i.status !== 'Done' && i.status !== "Can't do";
           const open = reasonFor === i.id;
           return (
             <li key={i.id} className="bg-surface rounded-xl border border-border p-5">
@@ -127,6 +145,7 @@ export function ResponseInstructions() {
         })}
         </ul>
       }
+      </QueryState>
     </div>);
 
 }

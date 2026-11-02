@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Cpu, Globe2, Syringe, Activity, BarChart3, Building2, Users, FileText, ArrowRight, BoxIcon } from "lucide-react";
+import { Cpu, Globe2, Syringe, Activity, BarChart3, Building2, Users, FileText, ArrowRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { exportItems } from "../../data/landing";
 interface CardShellProps {
   className: string;
-  icon: BoxIcon;
+  icon: LucideIcon;
   eyebrow: string;
   title: string;
   desc?: string;
@@ -60,11 +61,11 @@ export function FeatureBento() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 lg:auto-rows-[264px] gap-4">
         {/* AI Simulation Engine */}
-        <CardShell className="md:col-span-2 bg-gradient-to-r from-[#22C3A6] to-[#7DD3FC]" icon={Cpu} eyebrow="CORE ENGINE" title="AI Simulation Engine" desc="Combines SEIR compartmental models, agent-based simulation, and network transmission dynamics. Three modeling approaches converge into one unified prediction engine.">
+        <CardShell className="md:col-span-2 bg-gradient-to-r from-[#22C3A6] to-[#7DD3FC]" icon={Cpu} eyebrow="CORE ENGINE" title="Stochastic SEIHFR Engine" desc="Separates spread in the community, in hospital and at funerals, and runs each scenario hundreds of times so results come as ranges, not single lines.">
           <div className="flex items-center gap-2 mt-auto pt-4 text-[9px] text-[#0B1220]/70">
-            <span className="px-2 py-0.5 rounded bg-white/25">SEIR</span>
-            <span className="px-2 py-0.5 rounded bg-white/25">● Agent-Based</span>
-            <span className="px-2 py-0.5 rounded bg-white/25">Network</span>
+            <span className="px-2 py-0.5 rounded bg-white/25">SEIHFR</span>
+            <span className="px-2 py-0.5 rounded bg-white/25">● Monte Carlo</span>
+            <span className="px-2 py-0.5 rounded bg-white/25">30 districts</span>
           </div>
           <div className="hidden sm:block absolute right-6 top-10 w-[42%] h-[60%] rounded-md bg-white/10 border border-white/20">
             <svg viewBox="0 0 200 120" className="w-full h-full" aria-hidden="true">
@@ -77,7 +78,7 @@ export function FeatureBento() {
         </CardShell>
 
         {/* Geographic Spread */}
-        <CardShell className="lg:row-span-2 bg-gradient-to-b from-[#A78BFA] to-[#E879F9] min-h-[300px]" icon={Globe2} eyebrow="SPATIAL ANALYSIS" title="Geographic Spread" desc="Visualize how outbreaks propagate across regions, borders, and population centers in real time.">
+        <CardShell className="lg:row-span-2 bg-gradient-to-b from-[#A78BFA] to-[#E879F9] min-h-[300px]" icon={Globe2} eyebrow="SPATIAL ANALYSIS" title="Geographic Spread" desc="See how an outbreak could spread across Rwanda's 30 districts, using an estimated movement model.">
           <div className="mt-auto mx-auto w-[180px] h-[200px] mb-6">
             <svg viewBox="0 0 200 220" className="w-full h-full" aria-hidden="true">
               <path d="M60,30 Q110,15 150,45 Q180,80 165,130 Q150,185 100,195 Q55,195 40,150 Q25,90 60,30 Z" fill="#FFFFFF" fillOpacity="0.08" stroke="#FFFFFF" strokeOpacity="0.3" />
@@ -93,7 +94,7 @@ export function FeatureBento() {
         </CardShell>
 
         {/* Intervention Scenarios */}
-        <CardShell className="bg-gradient-to-br from-[#34D399] to-[#6EE7B7]" icon={Syringe} eyebrow="POLICY SIMULATION" title="Intervention Scenarios" desc="Model vaccines, lockdowns, masking, and school closures.">
+        <CardShell className="bg-gradient-to-br from-[#34D399] to-[#6EE7B7]" icon={Syringe} eyebrow="POLICY SIMULATION" title="Intervention Scenarios" desc="Contact tracing, isolation, safe burials, testing, vaccination, masking and lockdown, each with a time window.">
           <div className="space-y-2 mt-auto">
             <Toggle label="Vaccination Campaign" defaultOn />
             <Toggle label="Movement Restrictions" defaultOn={false} />
@@ -101,7 +102,7 @@ export function FeatureBento() {
         </CardShell>
 
         {/* Real-Time Monitoring */}
-        <CardShell className="bg-gradient-to-br from-[#F87171] to-[#FCA5A5]" icon={Activity} eyebrow="LIVE DASHBOARD" title="Real-Time Monitoring" desc="Track key epidemic indicators as simulations run.">
+        <CardShell className="bg-gradient-to-br from-[#F87171] to-[#FCA5A5]" icon={Activity} eyebrow="RT TRACKING" title="Is It Growing?" desc="Estimate Rt from daily case counts. Example values shown.">
           <div className="grid grid-cols-2 gap-2 mt-auto">
             <div className="bg-white/20 rounded-md p-2.5">
               <div className="text-[8px] font-code text-[#0B1220]/60">R₀ VALUE</div>
@@ -145,7 +146,7 @@ export function FeatureBento() {
         </CardShell>
 
         {/* Healthcare Capacity */}
-        <CardShell className="bg-gradient-to-br from-[#FBBF24] to-[#FDE68A]" icon={Building2} eyebrow="CAPACITY PLANNING" title="Healthcare Capacity" desc="Model ICU, bed, and ventilator strain.">
+        <CardShell className="bg-gradient-to-br from-[#FBBF24] to-[#FDE68A]" icon={Building2} eyebrow="CAPACITY PLANNING" title="Healthcare Capacity" desc="Check isolation-bed demand against capacity profiles.">
           <div className="space-y-3 mt-auto">
             {[{
             label: 'ICU Beds',
@@ -212,7 +213,7 @@ export function FeatureBento() {
         </CardShell>
 
         {/* Reporting & Export */}
-        <CardShell className="lg:row-span-2 bg-gradient-to-b from-[#2DD4BF] to-[#4ADE80]" icon={FileText} eyebrow="DATA EXPORT" title="Reporting & Export" desc="One-click export to your preferred format. Shareable links for stakeholder reviews.">
+        <CardShell className="lg:row-span-2 bg-gradient-to-b from-[#2DD4BF] to-[#4ADE80]" icon={FileText} eyebrow="DATA EXPORT" title="Reporting & Export" desc="PDF reports with an approval step, map and table exports, and shareable links.">
           <ul className="space-y-2 mt-5">
             {exportItems.map((item) => <li key={item.name}>
                 <button className="w-full flex items-center gap-2.5 bg-white/20 hover:bg-white/30 rounded-md px-3 py-2.5 text-left transition-colors">

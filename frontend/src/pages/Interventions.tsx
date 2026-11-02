@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Layers, ListTree } from 'lucide-react';
-import { useScreenInit } from '../useScreenInit.js';
 import { useAuth } from '../context/AuthContext';
 import { ViewOnlyBadge } from '../components/analyst/Badges';
 import { PresetToasts } from '../components/presets/PresetToasts';
@@ -17,35 +16,20 @@ import { useInterventionPackages } from '../hooks/useInterventionPackages';
 
 type Tab = 'types' | 'packages';
 
-interface ScreenState {
-  interventionsTab?: Tab;
-  interventionTypeId?: string;
-  noCustomTypes?: boolean;
-  packageId?: string;
-  emptyPackage?: boolean;
-  itemEditor?: boolean;
-}
-
 export function Interventions({ canEditBuiltIns = false }: {canEditBuiltIns?: boolean;}) {
-  const init = useScreenInit() as ScreenState;
   const { role } = useAuth();
   // Admins work in the admin area, so only Analysts can edit here.
   const canEdit = role === 'analyst';
-  const [tab, setTab] = useState<Tab>(init.interventionsTab ?? 'types');
+  const [tab, setTab] = useState<Tab>('types');
   const toasts = useToasts();
   const types = useInterventionTypes({
     canEdit,
     canEditBuiltIns,
-    toasts,
-    initialOpenId: init.interventionTypeId,
-    noCustom: init.noCustomTypes
+    toasts
   });
   const packages = useInterventionPackages({
     canEdit,
-    toasts,
-    initialId: init.packageId,
-    emptyPackage: init.emptyPackage,
-    openEditor: init.itemEditor
+    toasts
   });
   const editingItem = packages.editor?.itemId ? packages.draft.items.find((i) => i.id === packages.editor?.itemId) ?? null : null;
 
@@ -89,7 +73,15 @@ export function Interventions({ canEditBuiltIns = false }: {canEditBuiltIns?: bo
         })}
       </div>
 
-      {tab === 'types' ?
+      {(types.loadError || packages.loadError) &&
+      <p role="alert" className="bg-danger/10 border border-danger/30 rounded-xl px-5 py-4 text-[13px] text-text-primary">
+          The intervention library couldn’t be loaded. {types.loadError ?? packages.loadError}
+        </p>
+      }
+
+      {types.loading || packages.loading ?
+      <p className="bg-surface border border-border rounded-xl px-5 py-8 text-[13px] text-text-secondary">Loading the intervention library…</p> :
+      tab === 'types' ?
       <TypeLibrary s={types} /> :
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">

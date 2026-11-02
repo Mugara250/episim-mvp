@@ -11,7 +11,16 @@ from sqlalchemy.orm import Session
 from app.config import ESTIMATE_LABEL, get_settings
 from app.db import get_db
 from app.deps import forbid, require
-from app.models import BorderRisk, CapacityProfile, Scenario, SimulationResult, SimulationRun, User
+from app.models import (
+    BorderRisk,
+    CapacityProfile,
+    Report,
+    Scenario,
+    ScenarioApproval,
+    SimulationResult,
+    SimulationRun,
+    User,
+)
 from app.schemas.base import CamelModel
 from app.services.access import scenario_access
 from app.services.audit import audit
@@ -110,9 +119,24 @@ def run_out(run: SimulationRun, res: SimulationResult | None = None) -> RunOut:
 
 def visible_run(db: Session, run_id: str, user: User) -> SimulationRun:
     run = db.get(SimulationRun, run_id)
-    if run is None or not (run.requested_by_id == user.id or scenario_access(run.scenario, user)):
+    if run is None or not (
+        run.requested_by_id == user.id
+        or scenario_access(run.scenario, user)
+        or approved_for_policy(db, run, user)
+    ):
         raise HTTPException(404, "Run not found, or its scenario has not been shared with you.")
     return run
+
+
+def approved_for_policy(db: Session, run: SimulationRun, user: User) -> bool:
+    """Policy makers may read a run behind an approved scenario or an approved policy report."""
+    if user.role != "policymaker":
+        return False
+    approved = select(ScenarioApproval.id).where(ScenarioApproval.run_id == run.id)
+    reported = select(Report.id).where(
+        Report.simulation_run_id == run.id, Report.status == "approved", Report.audience == "policy"
+    )
+    return db.scalar(approved) is not None or db.scalar(reported) is not None
 
 
 def completed_result(db: Session, run_id: str, user: User) -> tuple[SimulationRun, SimulationResult]:

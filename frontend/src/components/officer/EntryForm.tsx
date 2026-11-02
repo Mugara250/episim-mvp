@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Save, Lock } from 'lucide-react';
 import { inputCls, labelCls } from '../models/chartTheme';
 import { HospitalEntry, OfficerDisease, PpeLevel } from '../../types/officer';

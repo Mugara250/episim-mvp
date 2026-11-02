@@ -1,13 +1,12 @@
-import React from 'react';
 import { Ban } from 'lucide-react';
-import { InterventionPackage, InterventionType } from '../../types/interventions';
+import { InterventionTypeRef, PackageRef } from '../../types/scenarios';
 import { ChoiceCard } from './ChoiceCard';
 import { ConfigEmpty } from './ConfigEmpty';
 import { MiniTimeline } from './MiniTimeline';
 
 interface PackageStepProps {
-  packages: InterventionPackage[];
-  types: InterventionType[];
+  packages: PackageRef[];
+  types: InterventionTypeRef[];
   value: string | null;
   seen: boolean;
   onChange: (id: string) => void;
@@ -53,7 +52,10 @@ export function PackageStep({ packages, types, value, seen, onChange, onSkip, on
         <div role="radiogroup" aria-label="Intervention package" className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {packages.map((p) =>
           <ChoiceCard key={p.id} selected={value === p.id} onSelect={() => onChange(p.id)}>
-                <span className="text-[15px] font-semibold text-text-primary pr-8">{p.name}</span>
+                <span className="flex items-center gap-2 pr-8 flex-wrap">
+                  <span className="text-[15px] font-semibold text-text-primary">{p.name}</span>
+                  {p.illustrative && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning/15 text-warning">Illustrative</span>}
+                </span>
                 <span className="text-[12px] text-text-secondary mt-0.5">
                   {p.items.length} intervention{p.items.length === 1 ? '' : 's'}
                 </span>

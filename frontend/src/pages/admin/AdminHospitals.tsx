@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Search, Edit2, AlertTriangle } from 'lucide-react';
 import { HospitalFormModal } from '../../components/admin/HospitalFormModal';
 import { useAdmin } from '../../context/AdminContext';
 import { Hospital } from '../../types/admin';
+import { IllustrativeBadge, QueryState } from '../../components/officer/DataState';
 
 export function AdminHospitals() {
-  const { hospitals, officersAt } = useAdmin();
+  const { hospitals, officersAt, isLoading, error } = useAdmin();
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Hospital | 'new' | null>(null);
 
@@ -41,6 +42,7 @@ export function AdminHospitals() {
         
       </label>
 
+      <QueryState isLoading={isLoading} error={error}>
       <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
@@ -62,7 +64,9 @@ export function AdminHospitals() {
                 const officers = officersAt(h.id);
                 return (
                   <tr key={h.id}>
-                    <td className="px-6 py-3.5 font-medium text-text-primary">{h.name}</td>
+                    <td className="px-6 py-3.5 font-medium text-text-primary">
+                      <span className="flex items-center gap-2 flex-wrap">{h.name}{h.illustrative && <IllustrativeBadge className="!px-2 !py-0.5 !text-[10px]" />}</span>
+                    </td>
                     <td className="px-6 py-3.5 text-text-secondary">{h.district}</td>
                     <td className="px-6 py-3.5 text-right tabular-nums font-semibold text-text-primary">{h.isolationBeds}</td>
                     <td className="px-6 py-3.5">
@@ -95,6 +99,7 @@ export function AdminHospitals() {
           </table>
         </div>
       </div>
+      </QueryState>
 
       {editing && <HospitalFormModal hospital={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </div>);

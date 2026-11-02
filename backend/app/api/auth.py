@@ -166,9 +166,12 @@ class AccessRequestIn(CamelModel):
 
 class AccessRequestStatusOut(CamelModel):
     id: str
+    name: str
     email: str
     status: str
     submitted_at: datetime
+    decided_at: datetime | None = None
+    assigned_role: str | None = None
     rejection_reason: str | None = None
 
 

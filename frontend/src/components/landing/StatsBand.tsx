@@ -1,4 +1,3 @@
-import React from 'react';
 import { landingStats } from '../../data/landing';
 
 export function StatsBand() {

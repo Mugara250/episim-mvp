@@ -22,3 +22,12 @@ export function formatDateTime(iso: string): string {
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
+/** Institutions offered on the Request Account form ("Other" lets the requester type one). */
+export const REQUEST_INSTITUTIONS = [
+'Ministry of Health Rwanda',
+'Rwanda Biomedical Centre',
+'University Teaching Hospital of Kigali (CHUK)',
+'WHO Africa',
+'UNICEF',
+'University of Rwanda',
+'Other'];

@@ -1,8 +1,7 @@
-import React from 'react';
 import { BookOpen, ChevronRight, Copy, Lock, Plus, Search } from 'lucide-react';
 import { InterventionTypesState } from '../../hooks/useInterventionTypes';
 import { TypeFilter } from '../../types/interventions';
-import { pct } from '../../utils/interventions';
+import { leverLabel, pct } from '../../utils/interventions';
 import { MechanismBadge } from './MechanismBadge';
 
 const FILTERS: {id: TypeFilter;label: string;}[] = [
@@ -25,7 +24,7 @@ export function TypeLibrary({ s }: {s: InterventionTypesState;}) {
             id="type-search"
             value={s.query}
             onChange={(e) => s.setQuery(e.target.value)}
-            placeholder="Search by name or mechanism"
+            placeholder="Search by name, mechanism or lever"
             className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-primary" />
           
         </div>
@@ -96,6 +95,7 @@ export function TypeLibrary({ s }: {s: InterventionTypesState;}) {
               <tr>
                 <th className="px-6 py-3 font-medium">Name</th>
                 <th className="px-6 py-3 font-medium">Effect mechanism</th>
+                <th className="px-6 py-3 font-medium">Model lever</th>
                 <th className="px-6 py-3 font-medium text-right">Default effect size</th>
                 <th className="px-6 py-3 font-medium">Citation</th>
                 <th className="px-6 py-3" aria-hidden />
@@ -127,6 +127,9 @@ export function TypeLibrary({ s }: {s: InterventionTypesState;}) {
                     </td>
                     <td className="px-6 py-4">
                       <MechanismBadge mechanism={t.mechanism} />
+                    </td>
+                    <td className="px-6 py-4 text-text-secondary" title={t.leverDescription}>
+                      {leverLabel(t.engineLever)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="font-semibold text-text-primary tabular-nums">{pct(t.defaultEffect)}</span>

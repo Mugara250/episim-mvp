@@ -1,595 +1,550 @@
-import React, { useState, createElement } from 'react';
+import { useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, Check, GitCompare, Link2, MessageSquare, Search } from 'lucide-react';
+import { FanChart } from '../components/models/FanChart';
+import { CHART, pct, round } from '../components/models/chartTheme';
 import {
-  GitCompare,
-  Check,
-  Share2,
-  MessageSquare,
-  Sliders,
-  BarChart3 } from
-'lucide-react';
-import { ExportButton } from '../components/common/ExportButton';
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip } from
-'recharts';
-const radarData = [
-{
-  subject: 'Peak Cases',
-  A: 120,
-  B: 80,
-  C: 40,
-  fullMark: 150
-},
-{
-  subject: 'Duration',
-  A: 90,
-  B: 120,
-  C: 140,
-  fullMark: 150
-},
-{
-  subject: 'Econ Cost',
-  A: 30,
-  B: 90,
-  C: 130,
-  fullMark: 150
-},
-{
-  subject: 'Mortality',
-  A: 140,
-  B: 70,
-  C: 30,
-  fullMark: 150
-},
-{
-  subject: 'Resource Demand',
-  A: 130,
-  B: 85,
-  C: 45,
-  fullMark: 150
-}];
+  Bands,
+  Comparison,
+  MetricValue,
+  Range,
+  Run,
+  useCapacityOptions,
+  useComparison,
+  useRuns,
+  useSaveComparison } from
+'../api/comparison';
 
-const effectivenessData = [
-{
-  name: 'Full Lockdown',
-  effectiveness: 80,
-  fill: '#3B82F6'
-},
-{
-  name: 'Vaccination',
-  effectiveness: 75,
-  fill: '#10B981'
-},
-{
-  name: 'Mask Mandate',
-  effectiveness: 40,
-  fill: '#F59E0B'
-},
-{
-  name: 'Social Distancing',
-  effectiveness: 35,
-  fill: '#8B5CF6'
-},
-{
-  name: 'School Closure',
-  effectiveness: 25,
-  fill: '#EF4444'
-}];
+const MAX_RUNS = 3;
+const COLORS = [CHART.primary, CHART.accent, CHART.blue];
+const PERCENT_METRICS = new Set(['pTakeOff', 'pBedsExceeded', 'hcwShare']);
+const STATUS_TEXT: Record<string, string> = {
+  queued: 'Queued',
+  running: 'Running',
+  failed: 'Failed',
+  cancelled: 'Cancelled'
+};
+
+const toBands = (b: Bands | null | undefined) =>
+(b?.median ?? []).map((m, day) => ({ day, low: b?.low[day] ?? m, median: m, high: b?.high[day] ?? m }));
+
+function fmtValue(metric: string, v: number | null | undefined) {
+  if (v === null || v === undefined) return '—';
+  return PERCENT_METRICS.has(metric) ? pct(v) : round(v);
+}
+
+function fmtCell(metric: string, value: MetricValue['value']) {
+  if (value === null || value === undefined) return { main: '—', sub: '' };
+  if (typeof value === 'number') return { main: fmtValue(metric, value), sub: 'share of runs' };
+  const r = value as Range;
+  return { main: fmtValue(metric, r.median), sub: `${fmtValue(metric, r.low)}–${fmtValue(metric, r.high)}` };
+}
+
+function fmtDiff(metric: string, diff: number) {
+  const sign = diff > 0 ? '+' : '−';
+  const abs = Math.abs(diff);
+  return PERCENT_METRICS.has(metric) ? `${sign}${(abs * 100).toFixed(0)} pts` : `${sign}${round(abs)}`;
+}
+
+const formatDate = (iso: string | null | undefined) =>
+iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 export function ScenarioComparison() {
+  const [params, setParams] = useSearchParams();
+  const selected = useMemo(() => (params.get('runs') ?? '').split(',').filter(Boolean).slice(0, MAX_RUNS), [params]);
+  const capacityId = params.get('capacity');
+  const baselineParam = params.get('baseline');
+  const baselineId = baselineParam && selected.includes(baselineParam) ? baselineParam : selected[0] ?? null;
+
+  const runsQ = useRuns();
+  const optionsQ = useCapacityOptions();
+  const cmpQ = useComparison(selected, capacityId, baselineId);
+  const save = useSaveComparison();
+
+  const [search, setSearch] = useState('');
+  const [disease, setDisease] = useState('all');
+  const [view, setView] = useState<'active' | 'beds'>('active');
   const [notes, setNotes] = useState('');
-  const [sensitivityR0, setSensitivityR0] = useState(0);
-  const [sensitivityAdherence, setSensitivityAdherence] = useState(0);
-  const handleShare = () => {
-    alert(
-      'Scenario comparison link copied to clipboard. Ready to share with stakeholders.'
-    );
+  const [toast, setToast] = useState<string | null>(null);
+
+  const update = (next: {runs?: string[];capacity?: string | null;baseline?: string | null;}) => {
+    const p = new URLSearchParams(params);
+    const set = (k: string, v: string | null | undefined) => v ? p.set(k, v) : p.delete(k);
+    if (next.runs !== undefined) set('runs', next.runs.join(','));
+    if (next.capacity !== undefined) set('capacity', next.capacity);
+    if (next.baseline !== undefined) set('baseline', next.baseline);
+    setParams(p, { replace: true });
   };
+
+  const toggle = (id: string) => {
+    if (selected.includes(id)) {
+      const runs = selected.filter((x) => x !== id);
+      update({ runs, baseline: baselineParam === id ? null : baselineParam });
+    } else if (selected.length < MAX_RUNS) update({ runs: [...selected, id] });
+  };
+
+  const flash = (text: string) => {
+    setToast(text);
+    window.setTimeout(() => setToast(null), 2500);
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      flash('Link copied. It opens these runs with the same capacity profile.');
+    } catch {
+      flash('Could not copy automatically. Copy the address from the browser bar.');
+    }
+  };
+
+  const runs = runsQ.data ?? [];
+  const diseases = Array.from(new Set(runs.map((r) => r.presetName).filter(Boolean))) as string[];
+  const filtered = runs.filter(
+    (r) =>
+    (disease === 'all' || r.presetName === disease) && (
+    !search.trim() || `${r.scenarioName} ${r.id} ${r.packageName ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))
+  );
+  const completedCount = runs.filter((r) => r.status === 'completed').length;
+  const colorOf = (id: string) => COLORS[selected.indexOf(id)] ?? CHART.muted;
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
       {/* Header */}
-      <div className="flex justify-between items-end mb-8">
+      <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
         <div>
-          <h1 className="text-h1 text-text-primary mb-1">
-            Scenario Comparison
-          </h1>
+          <h1 className="text-h1 text-text-primary mb-1">Scenario Comparison</h1>
           <p className="text-body text-text-secondary">
-            Evaluate trade-offs between different intervention strategies
+            Compare up to three completed simulation runs. Scenario estimates, not forecasts.
           </p>
         </div>
         <div className="flex gap-3">
           <button
-            onClick={handleShare}
-            className="bg-surface border border-border hover:bg-background text-text-primary px-4 py-2.5 rounded-lg text-[13px] font-semibold flex items-center transition-colors shadow-sm">
-            
-            <Share2 size={16} className="mr-2" />
-            Share
+            onClick={copyLink}
+            disabled={selected.length < 2}
+            className="bg-surface border border-border hover:bg-background text-text-primary px-4 py-2.5 rounded-lg text-[13px] font-semibold flex items-center transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            <Link2 size={16} className="mr-2" />
+            Copy link
           </button>
-          <ExportButton
-            label="Export Matrix"
-            onExport={(fmt) => {
-              if (fmt === 'json') {
-                const blob = new Blob(
-                  [
-                  JSON.stringify(
-                    {
-                      exported: 'scenario-matrix',
-                      at: new Date().toISOString()
-                    },
-                    null,
-                    2
-                  )],
-
-                  {
-                    type: 'application/json'
-                  }
-                );
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `scenario-matrix.${fmt}`;
-                a.click();
-              } else {
-                alert(`${fmt.toUpperCase()} export coming soon!`);
-              }
-            }} />
-          
         </div>
       </div>
 
-      {/* Sensitivity Analysis Panel */}
-      <div className="bg-surface p-6 rounded-xl border border-border shadow-sm mb-6">
-        <div className="flex items-center mb-4">
-          <Sliders size={18} className="text-primary mr-2" />
-          <h3 className="text-[14px] font-bold text-text-primary uppercase tracking-wider">
-            Sensitivity Analysis
-          </h3>
+      {toast &&
+      <div role="status" className="fixed bottom-6 right-6 z-50 bg-sidebar-bg text-white text-[13px] px-4 py-3 rounded-lg shadow-lg">
+          {toast}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <div className="flex justify-between mb-1">
-              <label className="text-[11px] font-semibold text-text-secondary uppercase">
-                Transmission Variance (R₀)
-              </label>
-              <span className="text-[11px] font-bold text-primary">
-                {sensitivityR0 > 0 ? '+' : ''}
-                {sensitivityR0}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min={-20}
-              max={20}
-              value={sensitivityR0}
-              onChange={(e) => setSensitivityR0(Number(e.target.value))}
-              className="w-full h-1.5 bg-background rounded-lg appearance-none accent-primary" />
-            
-            <p className="text-[10px] text-text-secondary mt-1">
-              Adjust baseline transmission rate to test scenario robustness.
-            </p>
-          </div>
-          <div>
-            <div className="flex justify-between mb-1">
-              <label className="text-[11px] font-semibold text-text-secondary uppercase">
-                Adherence Variance
-              </label>
-              <span className="text-[11px] font-bold text-primary">
-                {sensitivityAdherence > 0 ? '+' : ''}
-                {sensitivityAdherence}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min={-20}
-              max={20}
-              value={sensitivityAdherence}
-              onChange={(e) => setSensitivityAdherence(Number(e.target.value))}
-              className="w-full h-1.5 bg-background rounded-lg appearance-none accent-primary" />
-            
-            <p className="text-[10px] text-text-secondary mt-1">
-              Simulate lower or higher public compliance with NPIs.
-            </p>
-          </div>
-        </div>
-      </div>
+      }
 
-      {/* Scenario Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Scenario A */}
-        <div className="bg-surface p-6 rounded-xl border-2 border-danger/20 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-danger"></div>
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-[16px] font-bold text-text-primary">
-              Baseline (Do Nothing)
-            </h3>
-            <span className="bg-danger/15 text-danger text-[10px] font-bold px-2 py-1 rounded">
-              High Risk
-            </span>
-          </div>
-          <div className="space-y-3 mb-6">
-            <div className="flex items-center text-[12px] text-text-secondary">
-              <Check size={14} className="mr-2 text-border" /> No interventions
-            </div>
-          </div>
-          <div className="pt-4 border-t border-border grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-[10px] text-text-secondary uppercase">
-                Peak Cases
-              </div>
-              <div className="text-[18px] font-bold text-danger">
-                {Math.round(420 * (1 + sensitivityR0 / 100))}K
-              </div>
-              <div className="text-[10px] text-text-secondary mt-0.5">
-                95% CI: ±15%
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] text-text-secondary uppercase">
-                Duration
-              </div>
-              <div className="text-[18px] font-bold text-text-primary">
-                90 Days
-              </div>
-            </div>
-          </div>
+      {runsQ.isError &&
+      <div className="bg-danger/10 border border-danger/30 text-danger text-[13px] rounded-xl p-4">
+          Could not load simulation runs. {(runsQ.error as Error).message}
         </div>
+      }
 
-        {/* Scenario B */}
-        <div className="bg-surface p-6 rounded-xl border-2 border-primary shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
-          <div className="absolute top-4 right-4 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">
-            Recommended
-          </div>
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-[16px] font-bold text-text-primary">
-              Targeted Mitigation
-            </h3>
-          </div>
-          <div className="space-y-3 mb-6">
-            <div className="flex items-center text-[12px] text-text-secondary">
-              <Check size={14} className="mr-2 text-primary" /> Mask Mandate
-            </div>
-            <div className="flex items-center text-[12px] text-text-secondary">
-              <Check size={14} className="mr-2 text-primary" /> Contact Tracing
-            </div>
-          </div>
-          <div className="pt-4 border-t border-border grid grid-cols-2 gap-4">
+      {/* Completed runs list */}
+      {runsQ.isLoading ?
+      <div className="bg-surface p-6 rounded-xl border border-border text-[13px] text-text-secondary">Loading runs…</div> :
+      completedCount === 0 ?
+      <EmptyRuns /> :
+
+      <section className="bg-surface rounded-xl border border-border overflow-hidden">
+          <div className="p-6 border-b border-border flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-[10px] text-text-secondary uppercase">
-                Peak Cases
-              </div>
-              <div className="text-[18px] font-bold text-warning">
-                {Math.round(
-                  180 * (
-                  1 + sensitivityR0 / 100) * (
-                  1 - sensitivityAdherence / 100)
-                )}
-                K
-              </div>
-              <div className="text-[10px] text-text-secondary mt-0.5">
-                95% CI: ±12%
-              </div>
+              <h3 className="text-h3 text-text-primary">Completed runs</h3>
+              <p className="text-[12px] text-text-secondary mt-1">
+                Pick up to {MAX_RUNS}. The first one you pick is the baseline. Runs that are still going or failed can’t be compared.
+              </p>
             </div>
-            <div>
-              <div className="text-[10px] text-text-secondary uppercase">
-                Duration
+            <div className="flex gap-3">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search runs"
+                aria-label="Search runs"
+                className="pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary w-52" />
               </div>
-              <div className="text-[18px] font-bold text-text-primary">
-                120 Days
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Scenario C */}
-        <div className="bg-surface p-6 rounded-xl border-2 border-blue-500/20 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-[16px] font-bold text-text-primary">
-              Maximum Suppression
-            </h3>
-          </div>
-          <div className="space-y-3 mb-6">
-            <div className="flex items-center text-[12px] text-text-secondary">
-              <Check size={14} className="mr-2 text-blue-500" /> Full Lockdown
-            </div>
-            <div className="flex items-center text-[12px] text-text-secondary">
-              <Check size={14} className="mr-2 text-blue-500" /> Travel Ban
+              <select
+              value={disease}
+              onChange={(e) => setDisease(e.target.value)}
+              aria-label="Filter by disease"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
+                <option value="all">All diseases</option>
+                {diseases.map((d) =>
+              <option key={d} value={d}>{d}</option>
+              )}
+              </select>
             </div>
           </div>
-          <div className="pt-4 border-t border-border grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-[10px] text-text-secondary uppercase">
-                Peak Cases
-              </div>
-              <div className="text-[18px] font-bold text-success">
-                {Math.round(
-                  45 * (
-                  1 + sensitivityR0 / 100) * (
-                  1 - sensitivityAdherence / 100)
-                )}
-                K
-              </div>
-              <div className="text-[10px] text-text-secondary mt-0.5">
-                95% CI: ±8%
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] text-text-secondary uppercase">
-                Duration
-              </div>
-              <div className="text-[18px] font-bold text-text-primary">
-                180+ Days
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Radar Chart */}
-        <div className="bg-surface p-6 rounded-xl border border-border">
-          <h3 className="text-h3 text-text-primary mb-6">
-            Multidimensional Trade-offs
-          </h3>
-          <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                <PolarGrid stroke="#E2E8F0" />
-                <PolarAngleAxis
-                  dataKey="subject"
-                  tick={{
-                    fill: '#64748B',
-                    fontSize: 11
-                  }} />
-                
-                <PolarRadiusAxis
-                  angle={30}
-                  domain={[0, 150]}
-                  tick={false}
-                  axisLine={false} />
-                
-                <Radar
-                  name="Baseline"
-                  dataKey="A"
-                  stroke="#EF4444"
-                  fill="#EF4444"
-                  fillOpacity={0.2} />
-                
-                <Radar
-                  name="Targeted"
-                  dataKey="B"
-                  stroke="#10B981"
-                  fill="#10B981"
-                  fillOpacity={0.4} />
-                
-                <Radar
-                  name="Maximum"
-                  dataKey="C"
-                  stroke="#3B82F6"
-                  fill="#3B82F6"
-                  fillOpacity={0.2} />
-                
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center space-x-6 mt-4 text-[12px]">
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded bg-danger mr-2"></div>Baseline
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded bg-primary mr-2"></div>Targeted
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded bg-blue-500 mr-2"></div>Maximum
-            </div>
-          </div>
-        </div>
-
-        {/* Intervention Effectiveness Ranking */}
-        <div className="bg-surface p-6 rounded-xl border border-border">
-          <h3 className="text-h3 text-text-primary mb-6 flex items-center">
-            <BarChart3 size={18} className="text-primary mr-2" />
-            Intervention Effectiveness Ranking
-          </h3>
-          <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={effectivenessData}
-                layout="vertical"
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 40,
-                  bottom: 5
-                }}>
-                
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  horizontal={false}
-                  stroke="#E2E8F0" />
-                
-                <XAxis
-                  type="number"
-                  domain={[0, 100]}
-                  tick={{
-                    fontSize: 11,
-                    fill: '#64748B'
-                  }}
-                  axisLine={false}
-                  tickLine={false} />
-                
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  tick={{
-                    fontSize: 11,
-                    fill: '#64748B'
-                  }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={100} />
-                
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: '1px solid #E2E8F0',
-                    fontSize: '12px'
-                  }}
-                  formatter={(value: number) => [`${value}%`, 'Effectiveness']} />
-                
-                <Bar
-                  dataKey="effectiveness"
-                  radius={[0, 4, 4, 0]}
-                  barSize={24} />
-                
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Comparison Matrix */}
-        <div className="lg:col-span-2 bg-surface rounded-xl border border-border overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-border">
-            <h3 className="text-h3 text-text-primary">Comparison Matrix</h3>
-          </div>
-          <div className="flex-1 overflow-x-auto">
+          <div className="overflow-x-auto max-h-[360px]">
             <table className="w-full text-left">
-              <thead className="bg-background border-b border-border">
+              <thead className="bg-background border-b border-border sticky top-0">
                 <tr>
-                  <th className="px-6 py-4 text-micro text-text-secondary">
-                    METRIC
-                  </th>
-                  <th className="px-6 py-4 text-micro text-danger">BASELINE</th>
-                  <th className="px-6 py-4 text-micro text-primary">
-                    TARGETED
-                  </th>
-                  <th className="px-6 py-4 text-micro text-blue-500">
-                    MAXIMUM
-                  </th>
+                  <th className="px-6 py-3 w-10" />
+                  {['Run', 'Disease', 'Population', 'Interventions', 'Runs', 'Date', 'Run by'].map((h) =>
+                <th key={h} className="px-4 py-3 text-micro text-text-secondary">{h.toUpperCase()}</th>
+                )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                <tr className="hover:bg-background/50">
-                  <td className="px-6 py-4 text-[13px] font-medium text-text-primary">
-                    Total Infections
-                    <div className="text-[10px] text-text-secondary font-normal">
-                      95% Confidence Interval
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    2.4M
-                    <div className="text-[10px] text-text-secondary/70">
-                      2.1M - 2.8M
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-[13px] font-bold text-text-primary">
-                    850K
-                    <div className="text-[10px] text-text-secondary font-normal">
-                      780K - 950K
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    120K
-                    <div className="text-[10px] text-text-secondary/70">
-                      95K - 150K
-                    </div>
-                  </td>
-                </tr>
-                <tr className="hover:bg-background/50">
-                  <td className="px-6 py-4 text-[13px] font-medium text-text-primary">
-                    Total Deaths
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    48,000
-                  </td>
-                  <td className="px-6 py-4 text-[13px] font-bold text-text-primary">
-                    12,500
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    2,100
-                  </td>
-                </tr>
-                <tr className="hover:bg-background/50">
-                  <td className="px-6 py-4 text-[13px] font-medium text-text-primary">
-                    ICU Overflow Days
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    45 days
-                  </td>
-                  <td className="px-6 py-4 text-[13px] font-bold text-text-primary">
-                    12 days
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    0 days
-                  </td>
-                </tr>
-                <tr className="hover:bg-background/50">
-                  <td className="px-6 py-4 text-[13px] font-medium text-text-primary">
-                    Economic Cost
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    $45M
-                  </td>
-                  <td className="px-6 py-4 text-[13px] font-bold text-text-primary">
-                    $120M
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    $380M
-                  </td>
-                </tr>
-                <tr className="hover:bg-background/50">
-                  <td className="px-6 py-4 text-[13px] font-medium text-text-primary">
-                    Social Disruption
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    Low
-                  </td>
-                  <td className="px-6 py-4 text-[13px] font-bold text-text-primary">
-                    Medium
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-text-secondary">
-                    Severe
-                  </td>
-                </tr>
+                {filtered.map((r) =>
+              <RunRow
+                key={r.id}
+                run={r}
+                checked={selected.includes(r.id)}
+                color={colorOf(r.id)}
+                disabled={r.status !== 'completed' || !selected.includes(r.id) && selected.length >= MAX_RUNS}
+                onToggle={() => toggle(r.id)} />
+              )}
+                {filtered.length === 0 &&
+              <tr>
+                    <td colSpan={8} className="px-6 py-6 text-[13px] text-text-secondary text-center">No runs match your search.</td>
+                  </tr>
+              }
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
+      }
 
-        {/* Notes & Annotations */}
-        <div className="bg-surface rounded-xl border border-border flex flex-col">
+      {completedCount > 0 && selected.length < 2 &&
+      <section className="bg-surface rounded-xl border border-border p-10 flex flex-col items-center text-center">
+          <span className="w-12 h-12 rounded-xl bg-hover text-primary flex items-center justify-center mb-4">
+            <GitCompare size={22} />
+          </span>
+          <h2 className="text-h3 text-text-primary">Select at least 2 runs to compare</h2>
+          <p className="text-[13px] text-text-secondary mt-1 max-w-sm">Tick runs in the list above. You can compare up to three.</p>
+        </section>
+      }
+
+      {selected.length >= 2 &&
+      <ComparisonBody
+        cmp={cmpQ.data}
+        loading={cmpQ.isLoading}
+        error={cmpQ.isError ? (cmpQ.error as Error).message : null}
+        selected={selected}
+        baselineId={baselineId}
+        onBaseline={(id) => update({ baseline: id })}
+        capacityId={capacityId}
+        onCapacity={(id) => update({ capacity: id })}
+        options={optionsQ.data ?? []}
+        view={view}
+        onView={setView}
+        colorOf={colorOf} />
+      }
+
+      {selected.length >= 2 && cmpQ.data &&
+      <div className="bg-surface rounded-xl border border-border flex flex-col">
           <div className="p-6 border-b border-border flex items-center">
             <MessageSquare size={18} className="text-primary mr-2" />
-            <h3 className="text-h3 text-text-primary">Notes & Annotations</h3>
+            <h3 className="text-h3 text-text-primary">Notes &amp; Annotations</h3>
           </div>
           <div className="p-6 flex-1 flex flex-col">
             <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add collaborative notes, assumptions, or policy recommendations here..."
-              className="flex-1 w-full bg-background border border-border rounded-lg p-3 text-[13px] text-text-primary focus:outline-none focus:border-primary resize-none min-h-[200px]" />
-            
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Assumptions, caveats or recommendations to keep with this comparison..."
+            className="flex-1 w-full bg-background border border-border rounded-lg p-3 text-[13px] text-text-primary focus:outline-none focus:border-primary resize-none min-h-[120px]" />
             <div className="mt-4 flex justify-end">
-              <button className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors">
-                Save Notes
+              <button
+              disabled={save.isPending}
+              onClick={() =>
+              save.mutate(
+                {
+                  name: cmpQ.data.runs.map((r) => r.scenarioName ?? r.id).join(' vs '),
+                  notes,
+                  runIds: selected,
+                  baselineRunId: baselineId,
+                  capacityProfileId: capacityId
+                },
+                {
+                  onSuccess: (c) => flash(`Saved as ${c.id}.`),
+                  onError: (e) => flash((e as Error).message)
+                }
+              )
+              }
+              className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-60">
+                {save.isPending ? 'Saving…' : 'Save comparison'}
               </button>
             </div>
           </div>
         </div>
+      }
+    </div>);
+
+}
+
+function EmptyRuns() {
+  return (
+    <section className="bg-surface rounded-xl border border-border p-10 flex flex-col items-center text-center">
+      <span className="w-12 h-12 rounded-xl bg-hover text-primary flex items-center justify-center mb-4">
+        <GitCompare size={22} />
+      </span>
+      <h2 className="text-h3 text-text-primary">No completed simulations yet</h2>
+      <p className="text-[13px] text-text-secondary mt-1 max-w-sm">Run a scenario on the Simulations page. Completed runs appear here.</p>
+      <Link to="/simulation" className="mt-5 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors">
+        Go to Simulations
+      </Link>
+    </section>);
+
+}
+
+function RunRow({ run, checked, color, disabled, onToggle }: {run: Run;checked: boolean;color: string;disabled: boolean;onToggle: () => void;}) {
+  const done = run.status === 'completed';
+  return (
+    <tr className={`${done ? 'hover:bg-background/50' : 'opacity-50'} ${checked ? 'bg-hover' : ''}`}>
+      <td className="px-6 py-3">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled && !checked}
+          onChange={onToggle}
+          aria-label={`Compare ${run.scenarioName}`}
+          className="w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
+          style={{ accentColor: color }} />
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
+          {checked && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />}
+          {run.scenarioName}
+        </div>
+        <div className="text-[11px] text-text-secondary">
+          {run.id}
+          {run.modelType === 'seihfr_geo' ? ' · district model' : ''}
+          {!done && ` · ${STATUS_TEXT[run.status] ?? run.status}`}
+        </div>
+      </td>
+      <td className="px-4 py-3 text-[13px] text-text-secondary">
+        {run.presetName ?? '—'}
+        {run.provisional &&
+        <span className="ml-2 bg-warning/15 text-warning text-[10px] font-bold px-1.5 py-0.5 rounded">Provisional</span>
+        }
+      </td>
+      <td className="px-4 py-3 text-[13px] text-text-secondary">
+        {run.datasetName ? `${run.datasetName} v${run.datasetVersion}` : '—'}
+      </td>
+      <td className="px-4 py-3 text-[13px] text-text-secondary">{run.packageName ?? 'No interventions'}</td>
+      <td className="px-4 py-3 text-[13px] text-text-secondary tabular-nums">{run.monteCarloRuns}</td>
+      <td className="px-4 py-3 text-[13px] text-text-secondary whitespace-nowrap">{formatDate(run.completedAt ?? run.queuedAt)}</td>
+      <td className="px-4 py-3 text-[13px] text-text-secondary">{run.requestedBy}</td>
+    </tr>);
+
+}
+
+interface BodyProps {
+  cmp: Comparison | undefined;
+  loading: boolean;
+  error: string | null;
+  selected: string[];
+  baselineId: string | null;
+  onBaseline: (id: string) => void;
+  capacityId: string | null;
+  onCapacity: (id: string | null) => void;
+  options: {id: string;name: string;hospitalBeds: number;placeholder: boolean;}[];
+  view: 'active' | 'beds';
+  onView: (v: 'active' | 'beds') => void;
+  colorOf: (id: string) => string;
+}
+
+function ComparisonBody({ cmp, loading, error, baselineId, onBaseline, capacityId, onCapacity, options, view, onView, colorOf }: BodyProps) {
+  if (error) {
+    return <div className="bg-danger/10 border border-danger/30 text-danger text-[13px] rounded-xl p-4">{error}</div>;
+  }
+  if (loading || !cmp) {
+    return <div className="bg-surface p-6 rounded-xl border border-border text-[13px] text-text-secondary">Comparing runs…</div>;
+  }
+  const beds = cmp.runs[0]?.capacity?.beds;
+  const chartSeries = cmp.runs.map((r) => ({
+    key: r.id.replace(/[^A-Za-z0-9]/g, ''),
+    label: `${r.scenarioName ?? r.id}${r.id === cmp.baselineId ? ' (baseline)' : ''}`,
+    color: colorOf(r.id),
+    data: toBands(view === 'active' ? r.series.active : r.series.hospitalised)
+  }));
+
+  return (
+    <div className="space-y-6">
+      {/* Baseline + capacity */}
+      <div className="bg-surface p-6 rounded-xl border border-border shadow-sm grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <label className="block text-micro text-text-secondary mb-2">BASELINE</label>
+          <div className="flex flex-wrap gap-2">
+            {cmp.runs.map((r) =>
+            <button
+              key={r.id}
+              onClick={() => onBaseline(r.id)}
+              aria-pressed={r.id === baselineId}
+              className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold flex items-center gap-2 transition-colors ${
+              r.id === baselineId ? 'border-primary bg-hover text-text-primary' : 'border-border text-text-secondary hover:bg-background'}`
+              }>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: colorOf(r.id) }} />
+                {r.scenarioName ?? r.id}
+                {r.id === baselineId && <Check size={13} className="text-primary" />}
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-text-secondary mt-2">Other runs show their difference from the baseline.</p>
+        </div>
+        <div>
+          <label htmlFor="cmp-capacity" className="block text-micro text-text-secondary mb-2">CAPACITY PROFILE (APPLIES TO EVERY RUN)</label>
+          <select
+            id="cmp-capacity"
+            value={capacityId ?? ''}
+            onChange={(e) => onCapacity(e.target.value || null)}
+            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
+            <option value="">No capacity check</option>
+            {options.map((o) =>
+            <option key={o.id} value={o.id}>
+                {o.name} · {o.hospitalBeds.toLocaleString()} beds{o.placeholder ? ' (illustrative)' : ''}
+              </option>
+            )}
+          </select>
+          <p className="text-[11px] text-text-secondary mt-2">Capacity is a check on the results, not an input to the model.</p>
+        </div>
       </div>
+
+      {/* Fairness warnings */}
+      {(cmp.warnings.length > 0 || cmp.provisional) &&
+      <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 space-y-1">
+          {cmp.warnings.map((w) =>
+        <p key={w} className="flex items-start gap-2 text-[13px] text-text-primary">
+              <AlertTriangle size={15} className="text-warning mt-0.5 flex-shrink-0" />
+              {w}
+            </p>
+        )}
+          {cmp.provisional &&
+        <p className="flex items-start gap-2 text-[13px] text-text-primary">
+              <AlertTriangle size={15} className="text-warning mt-0.5 flex-shrink-0" />
+              At least one run uses a provisional disease preset (values not yet reviewed by an epidemiologist).
+            </p>
+        }
+        </div>
+      }
+
+      {/* What is different */}
+      <section className="bg-surface rounded-xl border border-border overflow-hidden">
+        <div className="p-6 border-b border-border">
+          <h3 className="text-h3 text-text-primary">What is different between these runs</h3>
+        </div>
+        {cmp.differences.length === 0 ?
+        <p className="px-6 py-5 text-[13px] text-text-secondary">These runs use the same settings.</p> :
+
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-background border-b border-border">
+                <tr>
+                  <th className="px-6 py-3 text-micro text-text-secondary">SETTING</th>
+                  {cmp.runs.map((r) =>
+                <th key={r.id} className="px-6 py-3 text-micro" style={{ color: colorOf(r.id) }}>
+                      {(r.scenarioName ?? r.id).toUpperCase()}
+                    </th>
+                )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {cmp.differences.map((d) =>
+              <tr key={d.setting}>
+                    <td className="px-6 py-3 text-[13px] font-medium text-text-primary">{d.setting}</td>
+                    {d.values.map((v, i) =>
+                <td key={i} className="px-6 py-3 text-[13px] text-text-secondary">{v}</td>
+                )}
+                  </tr>
+              )}
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+
+      {/* Chart */}
+      <section className="bg-surface p-6 rounded-xl border border-border">
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-h3 text-text-primary">{view === 'active' ? 'Active cases' : 'Beds needed'}</h3>
+            <p className="text-[12px] text-text-secondary mt-1">
+              Line: median of runs. Shaded: 5–95% of runs. {cmp.label}.
+            </p>
+          </div>
+          <div role="radiogroup" aria-label="Chart" className="flex rounded-full bg-surface-2 p-1">
+            {([['active', 'Active cases'], ['beds', 'Beds needed']] as const).map(([id, label]) =>
+            <button
+              key={id}
+              role="radio"
+              aria-checked={view === id}
+              onClick={() => onView(id)}
+              className={`px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors ${
+              view === id ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`
+              }>
+                {label}
+              </button>
+            )}
+          </div>
+        </div>
+        <FanChart
+          series={chartSeries}
+          height={300}
+          threshold={view === 'beds' && beds !== undefined ? beds : undefined}
+          thresholdLabel={view === 'beds' && beds !== undefined ? `${beds.toLocaleString()} beds available` : undefined} />
+        {view === 'beds' && beds === undefined &&
+        <p className="text-[12px] text-text-secondary mt-2">Choose a capacity profile to draw the beds line.</p>
+        }
+      </section>
+
+      {/* Results table */}
+      <section className="bg-surface rounded-xl border border-border overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead className="bg-background border-b border-border">
+            <tr className="text-left text-[12px] text-text-secondary">
+              <th className="px-6 py-3 font-semibold">Median (5–95% range)</th>
+              {cmp.runs.map((r) =>
+              <th key={r.id} className="px-6 py-3 font-semibold">
+                  <span className="flex items-center gap-2 text-text-primary">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: colorOf(r.id) }} />
+                    <span className="truncate max-w-[200px]">{r.scenarioName ?? r.id}</span>
+                    {r.id === cmp.baselineId && <span className="text-[10px] font-bold text-text-secondary">BASELINE</span>}
+                  </span>
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {cmp.results.map((row) =>
+            <tr key={row.metric}>
+                <td className="px-6 py-3 text-text-secondary">{row.label}</td>
+                {row.values.map((v) => {
+                const cell = fmtCell(row.metric, v.value);
+                const needsCapacity = row.metric === 'pBedsExceeded' && v.value === null;
+                return (
+                  <td key={v.runId} className="px-6 py-3">
+                      <div className="font-semibold text-text-primary tabular-nums">
+                        {needsCapacity ? 'Pick a capacity profile' : cell.main}
+                        {v.diff !== null && v.diff !== 0 &&
+                      <span className={`ml-2 text-[11px] font-bold ${v.better ? 'text-success' : 'text-danger'}`}>
+                            {fmtDiff(row.metric, v.diff)}
+                          </span>
+                      }
+                      </div>
+                      {!needsCapacity && <div className="text-[11px] text-text-secondary tabular-nums">{cell.sub}</div>}
+                    </td>);
+
+              })}
+              </tr>
+            )}
+            {cmp.runs[0]?.capacity &&
+            <tr>
+                <td className="px-6 py-3 text-text-secondary">Beds run out (median course)</td>
+                {cmp.runs.map((r) =>
+              <td key={r.id} className="px-6 py-3 font-semibold text-text-primary">
+                    {r.capacity?.bedsRunOutDay != null ? `From day ${r.capacity.bedsRunOutDay}` : 'Within capacity'}
+                  </td>
+              )}
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p className="px-6 py-3 border-t border-border text-[11px] text-text-secondary">
+          {cmp.label}. Green means better than the baseline, red worse. Ranges show chance variation between runs, not uncertainty about the disease parameters.
+        </p>
+      </section>
     </div>);
 
 }

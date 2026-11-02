@@ -1,5 +1,6 @@
-import React from 'react';
-import { DatasetStatus, DraftStatus, ScenarioStatus } from '../../types/analyst';
+export type DatasetStatus = 'Passed' | 'Warnings' | 'Failed';
+export type ScenarioStatus = 'Completed' | 'Running' | 'Queued' | 'Saved' | 'Failed' | 'Cancelled';
+export type DraftStatus = 'Draft' | 'Pending approval' | 'Approved';
 
 const base = 'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap';
 
@@ -17,8 +18,10 @@ export function ScenarioStatusBadge({ status }: {status: ScenarioStatus;}) {
   const tone =
   status === 'Completed' ?
   'bg-success/15 text-success' :
-  status === 'Running' ?
+  status === 'Running' || status === 'Queued' ?
   'bg-hover text-primary' :
+  status === 'Failed' ?
+  'bg-danger/15 text-danger' :
   'bg-surface-2 text-text-secondary';
   return <span className={`${base} ${tone}`}>{status}</span>;
 }

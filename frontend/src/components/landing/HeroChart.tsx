@@ -1,4 +1,3 @@
-import React from 'react';
 
 const yLabels = ['100k', '75k', '50k', '25k', '0k'];
 const xLabels = ['0d', '50d', '100d', '150d', '200d'];
@@ -16,16 +15,15 @@ export function HeroChart() {
       <div className="bg-[#13203A] rounded-2xl border border-white/10 px-6 pt-5 pb-4 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6)]">
         {/* R0 chip */}
         <div className="absolute -top-4 left-8 bg-[#0E1729] border border-[#1FC7A5]/40 rounded-md px-3 py-1.5 text-[11px] font-code text-[#1FC7A5]">
-          R₀ = 2.4
+          Illustrative
         </div>
 
         <div className="flex justify-between items-center mb-3">
           <div className="text-[10px] tracking-wider text-slate-400 font-code">
-            SEIR MODEL · LIVE PROJECTION
+            SEIHFR MODEL · ILLUSTRATIVE CURVES
           </div>
           <div className="flex items-center text-[10px] text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#1FC7A5] mr-1.5 animate-pulse" />
-            Running
+            Not model output
           </div>
         </div>
 
@@ -64,7 +62,7 @@ export function HeroChart() {
           </svg>
 
           <div className="absolute top-[36%] -right-12 bg-[#0E1729] border border-white/10 rounded-md px-3 py-1.5 text-[11px] font-code text-slate-300 shadow-lg">
-            3 Active Scenarios
+            Compare up to 3 runs
           </div>
         </div>
 

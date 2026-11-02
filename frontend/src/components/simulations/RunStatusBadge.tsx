@@ -1,4 +1,3 @@
-import React from 'react';
 import { RunStatus } from '../../types/simulationRuns';
 import { STATUS_LABELS } from '../../utils/simulationRuns';
 

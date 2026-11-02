@@ -8,13 +8,14 @@ export const BUILDER_STEPS = ['Population dataset', 'Disease', 'Interventions', 
 interface Options {
   mode: BuilderMode;
   scenarios: Scenario[];
-  userName: string;
+  userId: string;
   initialStep?: number;
   toasts: Toasts;
-  onSave: (draft: ScenarioDraft, action: SaveAction, editingId: string | null) => void;
+  /** Saves to the API; resolves to false when the server refused (the toast says why). */
+  onSave: (draft: ScenarioDraft, action: SaveAction, mode: BuilderMode) => Promise<boolean>;
 }
 
-export function useScenarioBuilder({ mode, scenarios, userName, initialStep, toasts, onSave }: Options) {
+export function useScenarioBuilder({ mode, scenarios, userId, initialStep, toasts, onSave }: Options) {
   const baseId = mode.kind === 'clone' ? mode.fromId : mode.kind === 'new' ? null : mode.id;
   const base = scenarios.find((s) => s.id === baseId) ?? null;
   const readOnly = mode.kind === 'view';
@@ -40,12 +41,12 @@ export function useScenarioBuilder({ mode, scenarios, userName, initialStep, toa
     const e: Partial<Record<'name' | 'datasetId' | 'presetId', string>> = {};
     const name = draft.name.trim();
     if (!name) e.name = 'Give the scenario a name.';else
-    if (scenarios.some((s) => s.owner === userName && s.id !== editingId && s.name.toLowerCase() === name.toLowerCase()))
+    if (scenarios.some((s) => s.ownerId === userId && s.id !== editingId && s.name.toLowerCase() === name.toLowerCase()))
     e.name = 'You already have a scenario with this name.';
     if (!draft.datasetId) e.datasetId = 'Choose a population dataset.';
     if (!draft.presetId) e.presetId = 'Choose a disease.';
     return e;
-  }, [draft, scenarios, userName, editingId]);
+  }, [draft, scenarios, userId, editingId]);
 
   const canNext = step === 0 ? !!draft.datasetId : step === 1 ? !!draft.presetId : true;
   const reachable = (i: number) => i <= step || i >= 1 && !!draft.datasetId && (i < 2 || !!draft.presetId);
@@ -76,10 +77,7 @@ export function useScenarioBuilder({ mode, scenarios, userName, initialStep, toa
       }
     }
     setSaving(action);
-    toasts.later(() => {
-      setSaving(null);
-      onSave(draft, action, editingId);
-    }, 500);
+    onSave(draft, action, mode).finally(() => setSaving(null));
   };
 
   return {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertTriangle, CheckCircle2, Download, Info, XCircle } from 'lucide-react';
 import { PopulationImportState } from '../../hooks/usePopulationImport';
 import { downloadCsv } from '../../utils/csv';
@@ -6,6 +5,24 @@ import { formatCount } from '../../utils/populationImport';
 
 export function ValidationPanel({ s }: {s: PopulationImportState;}) {
   const v = s.validation;
+
+  if (!v && s.checkError && !s.missingRequired.length) {
+    return (
+      <section role="alert" className="bg-danger/10 border border-danger/30 rounded-xl p-8 text-center">
+        <p className="text-h3 text-text-primary">The rows couldn’t be checked</p>
+        <p className="text-[13px] text-text-secondary mt-1">{s.checkError}</p>
+      </section>);
+
+  }
+
+  if (!v && s.checking) {
+    return (
+      <section className="bg-surface rounded-xl border border-border p-8 text-center" aria-live="polite">
+        <p className="text-h3 text-text-primary">Checking every row…</p>
+        <p className="text-[13px] text-text-secondary mt-1">The server applies the same checks the import uses.</p>
+      </section>);
+
+  }
 
   if (!v) {
     return (

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import { ChangeEvent, FormEvent, useState } from 'react';
 import { Activity, ArrowLeft, Loader2, Send } from 'lucide-react';
 import { AuthField } from '../components/auth/AuthField';
 import { RequestStatusBanner } from '../components/auth/RequestStatusBanner';
 import { useAccountRequests } from '../context/AccountRequestContext';
-import { requestInstitutions } from '../data/accountRequests';
-import { isValidEmail } from '../utils/accountRequests';
+import { isValidEmail, REQUEST_INSTITUTIONS as requestInstitutions } from '../utils/accountRequests';
 
 interface RequestAccountProps {
   onNavigate: (route: string) => void;
@@ -25,12 +24,13 @@ const EMPTY: FormState = {
 };
 
 export function RequestAccount({ onNavigate }: RequestAccountProps) {
-  const { submitRequest, emailInUse, myRequest } = useAccountRequests();
+  const { submitRequest, myRequest } = useAccountRequests();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<FormKey, string>>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const set = (key: FormKey) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const set = (key: FormKey) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
     if (errors[key]) setErrors((er) => ({ ...er, [key]: undefined }));
   };
@@ -38,8 +38,8 @@ export function RequestAccount({ onNavigate }: RequestAccountProps) {
   const validate = () => {
     const er: Partial<Record<FormKey, string>> = {};
     if (!form.name.trim()) er.name = 'Enter your full name.';
-    if (!isValidEmail(form.email)) er.email = 'Enter a valid work email.';else
-    if (emailInUse(form.email)) er.email = 'An account or open request already uses this email.';
+    // Whether the email is already in use is checked by the server on submit.
+    if (!isValidEmail(form.email)) er.email = 'Enter a valid work email.';
     if (!form.institution) er.institution = 'Select your institution.';
     if (form.institution === 'Other' && !form.otherInstitution.trim()) er.otherInstitution = 'Enter your institution’s name.';
     if (!form.institutionAccountId.trim()) er.institutionAccountId = 'Enter your institution account ID.';
@@ -50,12 +50,13 @@ export function RequestAccount({ onNavigate }: RequestAccountProps) {
     return Object.keys(er).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-    setTimeout(() => {
-      submitRequest({
+    setSubmitError(null);
+    try {
+      await submitRequest({
         name: form.name.trim(),
         email: form.email.trim(),
         institution: form.institution === 'Other' ? form.otherInstitution.trim() : form.institution,
@@ -63,9 +64,13 @@ export function RequestAccount({ onNavigate }: RequestAccountProps) {
         position: form.position.trim(),
         password: form.password
       });
-      setSubmitting(false);
       setForm(EMPTY);
-    }, 700);
+    } catch (err) {
+      // e.g. 409: an account or open request already uses this email.
+      setSubmitError(err instanceof Error ? err.message : 'Your request could not be sent. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const submitted = !!myRequest;
@@ -115,6 +120,9 @@ export function RequestAccount({ onNavigate }: RequestAccountProps) {
           </div> :
 
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
+            {submitError &&
+            <p role="alert" className="text-[13px] text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">{submitError}</p>
+            }
             <AuthField id="req-name" label="FULL NAME" error={errors.name}>
               {(p) => <input {...p} type="text" value={form.name} onChange={set('name')} placeholder="Dr. Jane Mukamana" autoComplete="name" />}
             </AuthField>

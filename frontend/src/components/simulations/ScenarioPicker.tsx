@@ -1,26 +1,26 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { Scenario } from '../../types/scenarios';
-import { datasetLabel, findPreset, packageLabel } from '../../utils/scenarios';
+import { datasetLabel, packageLabel } from '../../utils/scenarios';
 
 interface ScenarioPickerProps {
   scenarios: Scenario[];
   value: string | null;
   onChange: (id: string) => void;
-  userName: string;
+  userId: string;
   disabled?: boolean;
 }
 
 function Meta({ s }: {s: Scenario;}) {
   return (
     <span className="block text-[12px] text-text-secondary truncate">
-      {findPreset(s.presetId)?.name ?? 'No disease'} · {datasetLabel(s)} · {packageLabel(s.packageId)}
+      {s.presetName ?? 'No disease'}{s.presetProvisional ? ' (provisional)' : ''} · {datasetLabel(s)} · {packageLabel(s.packageName)}
     </span>);
 
 }
 
 /** Searchable list of the scenarios this user can run. */
-export function ScenarioPicker({ scenarios, value, onChange, userName, disabled }: ScenarioPickerProps) {
+export function ScenarioPicker({ scenarios, value, onChange, userId, disabled }: ScenarioPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const wrap = useRef<HTMLDivElement>(null);
@@ -38,12 +38,12 @@ export function ScenarioPicker({ scenarios, value, onChange, userName, disabled 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
     const match = (s: Scenario) =>
-    !q || s.name.toLowerCase().includes(q) || (findPreset(s.presetId)?.name ?? '').toLowerCase().includes(q);
+    !q || s.name.toLowerCase().includes(q) || (s.presetName ?? '').toLowerCase().includes(q);
     return [
-    { label: 'My scenarios', items: scenarios.filter((s) => s.owner === userName && match(s)) },
-    { label: 'Shared with me', items: scenarios.filter((s) => s.owner !== userName && match(s)) }].
+    { label: 'My scenarios', items: scenarios.filter((s) => s.ownerId === userId && match(s)) },
+    { label: 'Shared with me', items: scenarios.filter((s) => s.ownerId !== userId && match(s)) }].
     filter((g) => g.items.length);
-  }, [scenarios, query, userName]);
+  }, [scenarios, query, userId]);
 
   const pick = (id: string) => {
     onChange(id);

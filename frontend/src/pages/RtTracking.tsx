@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ComposedChart, Bar, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
-import { Plus, Undo2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Plus, Undo2, TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCaseDatasets, useCaseEntry, useCaseQuality, useRtEstimate } from '../api/rt';
+import { getAccessLevel } from '../lib/rbac';
 import { CHART, inputCls, labelCls } from '../components/models/chartTheme';
-import { caseSeries } from '../data/caseReports';
-import { getDisease } from '../lib/models/diseases';
-import { estimateRt, trendOf } from '../lib/models/rt';
 
 function dateOf(start: string, day: number) {
   const d = new Date(start);
@@ -20,25 +19,30 @@ const TREND_COPY = {
   'not-enough-data': { label: 'Not enough data', text: 'Rt needs at least a week of case counts.', tone: 'text-text-secondary bg-surface-2 border-border', icon: Minus }
 };
 
-export function RtTracking({ onNavigate }: {onNavigate?: (route: string) => void;}) {
-  const [seriesId, setSeriesId] = useState(caseSeries[1].id);
-  const [extra, setExtra] = useState<Record<string, number[]>>({});
+export function RtTracking(_props: {onNavigate?: (route: string) => void;}) {
+  const datasets = useCaseDatasets();
+  const [chosenId, setChosenId] = useState<string | null>(null);
   const [rtWindow, setRtWindow] = useState(7);
   const { role } = useAuth();
-  // Analysts and Public Health Officers can both add daily counts
-  const canEnter = role === 'analyst' || role === 'officer';
+  // Analysts and Public Health Officers can both add daily counts (rt: full / write)
+  const canEnter = ['full', 'write'].includes(getAccessLevel(role, 'rt'));
   const [newCount, setNewCount] = useState('');
-  const series = caseSeries.find((s) => s.id === seriesId) ?? caseSeries[0];
-  const disease = getDisease(series.diseaseId);
-  const counts = [...series.counts, ...(extra[seriesId] ?? [])];
+  const [added, setAdded] = useState<Record<string, number>>({});
+  const list = datasets.data ?? [];
+  const series = list.find((s) => s.id === chosenId) ?? list[0] ?? null;
+  const seriesId = series?.id ?? null;
+  const estimate = useRtEstimate(seriesId, rtWindow);
+  const quality = useCaseQuality(seriesId);
+  const entry = useCaseEntry(seriesId);
 
-  const points = useMemo(() => estimateRt(counts, disease.serialInterval, rtWindow), [counts.join(','), rtWindow, disease.id]);
-  const latest = [...points].reverse().find((p) => p.rt !== null);
-  const trend = trendOf(latest);
+  const points = estimate.data?.points ?? [];
+  const latest = estimate.data?.latest ?? undefined;
+  const trend = estimate.data?.trend ?? 'not-enough-data';
   const copy = TREND_COPY[trend];
   const TrendIcon = copy.icon;
+  const startDate = estimate.data?.startDate ?? series?.startDate ?? new Date().toISOString();
   const rows = points.map((p) => ({
-    date: dateOf(series.startDate, p.day),
+    date: dateOf(startDate, p.day),
     cases: p.cases,
     rt: p.rt === null ? null : Number(p.rt.toFixed(2)),
     band: p.low === null || p.high === null ? null : [Number(p.low.toFixed(2)), Number(Math.min(p.high, 6).toFixed(2))]
@@ -46,11 +50,32 @@ export function RtTracking({ onNavigate }: {onNavigate?: (route: string) => void
 
   const addDay = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newCount === '' || Number(newCount) < 0) return;
-    setExtra((x) => ({ ...x, [seriesId]: [...(x[seriesId] ?? []), Math.round(Number(newCount))] }));
-    setNewCount('');
+    if (!seriesId || newCount === '' || Number(newCount) < 0) return;
+    entry.add.mutate(Math.round(Number(newCount)), {
+      onSuccess: () => {
+        setAdded((x) => ({ ...x, [seriesId]: (x[seriesId] ?? 0) + 1 }));
+        setNewCount('');
+      }
+    });
   };
-  const undo = () => setExtra((x) => ({ ...x, [seriesId]: (x[seriesId] ?? []).slice(0, -1) }));
+  const undo = () =>
+  seriesId && entry.undo.mutate(undefined, { onSuccess: () => setAdded((x) => ({ ...x, [seriesId]: Math.max(0, (x[seriesId] ?? 1) - 1) })) });
+
+  if (datasets.isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 py-24 text-[13px] text-text-secondary">
+        <Loader2 size={16} className="animate-spin" /> Loading case data…
+      </div>);
+
+  }
+  if (datasets.error || !series) {
+    return (
+      <div className="max-w-7xl mx-auto bg-surface rounded-xl border border-border p-10 text-center">
+        <h2 className="text-h3 text-text-primary">{datasets.error ? 'Case data couldn’t be loaded' : 'No case data yet'}</h2>
+        <p className="text-[13px] text-text-secondary mt-1">{datasets.error?.message ?? 'Import a daily case file or enter counts from the Hospital Tracker.'}</p>
+      </div>);
+
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -66,10 +91,13 @@ export function RtTracking({ onNavigate }: {onNavigate?: (route: string) => void
           <div className="bg-surface p-6 rounded-xl border border-border space-y-4">
             <div>
               <label htmlFor="rt-series" className={labelCls}>CASE REPORTS</label>
-              <select id="rt-series" className={inputCls} value={seriesId} onChange={(e) => setSeriesId(e.target.value)}>
-                {caseSeries.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+              <select id="rt-series" className={inputCls} value={series.id} onChange={(e) => setChosenId(e.target.value)}>
+                {list.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-              <p className="text-[11px] text-text-secondary mt-1">{series.reportedBy}</p>
+              <p className="text-[11px] text-text-secondary mt-1">{series.source}</p>
+              {series.illustrative &&
+              <p className="text-[11px] text-warning mt-1">Illustrative sample counts. {series.note}</p>
+              }
             </div>
             <div>
               <span className={labelCls}>WINDOW</span>
@@ -86,36 +114,40 @@ export function RtTracking({ onNavigate }: {onNavigate?: (route: string) => void
               </div>
             </div>
             <p className="text-[12px] text-text-secondary">
-              Serial interval: {disease.serialInterval.mean} days (sd {disease.serialInterval.sd}){disease.provisional ? ' · provisional' : ''}
+              {estimate.data ?
+              <>
+                  Serial interval ({estimate.data.presetName}): {estimate.data.serialInterval.mean} days (sd {estimate.data.serialInterval.sd})
+                  {estimate.data.provisional ? ' · provisional' : ''}
+                </> :
+              'Serial interval comes from the disease preset.'}
             </p>
+            <div className="pt-3 border-t border-border">
+              <span className={labelCls}>DATA QUALITY</span>
+              <p className={`text-[13px] font-semibold ${quality.data?.status === 'Failed' ? 'text-danger' : quality.data?.status === 'Warnings' ? 'text-warning' : 'text-success'}`}>
+                {quality.data?.status ?? '…'}
+              </p>
+              {(quality.data?.issues ?? []).map((i) =>
+              <p key={i.type} className="text-[12px] text-text-secondary">
+                  {i.type}: {Array.isArray(i.rows) ? i.rows.join(', ') : i.rows}
+                </p>
+              )}
+              <p className="text-[11px] text-text-secondary mt-1">Counts only, by facility or district. No patient records.</p>
+            </div>
           </div>
 
           {canEnter ?
           <form onSubmit={addDay} className="bg-surface p-6 rounded-xl border border-border space-y-3">
             <h2 className="text-h3 text-text-primary">Add today’s count</h2>
-            <div>
-              <label htmlFor="rt-disease" className={labelCls}>DISEASE</label>
-              <select
-                id="rt-disease"
-                className={inputCls}
-                value={series.diseaseId}
-                onChange={(e) => {
-                  const next = caseSeries.find((s) => s.diseaseId === e.target.value);
-                  if (next) setSeriesId(next.id);
-                }}>
-                
-                <option value="ebola">Ebola</option>
-                <option value="marburg">Marburg</option>
-              </select>
-            </div>
-            <label htmlFor="rt-new" className={labelCls}>NEW CASES ON {dateOf(series.startDate, counts.length).toUpperCase()}</label>
+            <p className="text-[12px] text-text-secondary">Adds to “{series.name}” ({series.disease === 'marburg' ? 'Marburg' : 'Ebola'}).</p>
+            <label htmlFor="rt-new" className={labelCls}>NEW CASES ON {dateOf(series.startDate, series.days).toUpperCase()}</label>
             <div className="flex gap-2">
               <input id="rt-new" type="number" min={0} className={inputCls} value={newCount} onChange={(e) => setNewCount(e.target.value)} />
-              <button type="submit" className="bg-primary hover:bg-primary-dark text-white px-4 rounded-lg text-[13px] font-semibold flex items-center transition-colors">
+              <button type="submit" disabled={entry.add.isPending} className="disabled:opacity-60 bg-primary hover:bg-primary-dark text-white px-4 rounded-lg text-[13px] font-semibold flex items-center transition-colors">
                 <Plus size={15} className="mr-1" /> Add
               </button>
             </div>
-            {(extra[seriesId]?.length ?? 0) > 0 &&
+            {(entry.add.error || entry.undo.error) && <p className="text-[12px] text-danger">{(entry.add.error ?? entry.undo.error)?.message}</p>}
+            {(added[series.id] ?? 0) > 0 &&
             <button type="button" onClick={undo} className="text-[12px] text-text-secondary hover:text-text-primary flex items-center">
                 <Undo2 size={13} className="mr-1" /> Remove last added day
               </button>
@@ -149,7 +181,9 @@ export function RtTracking({ onNavigate }: {onNavigate?: (route: string) => void
 
           <section className="bg-surface p-6 rounded-xl border border-border">
             <h2 className="text-h3 text-text-primary">Daily cases and Rt</h2>
-            <p className="text-[12px] text-text-secondary mt-1 mb-4">Bars: reported cases. Line: Rt with 95% range. Above the dashed line the outbreak grows.</p>
+            <p className="text-[12px] text-text-secondary mt-1 mb-4">
+              Bars: reported cases. Line: Rt with 95% range. Above the dashed line the outbreak grows. {estimate.data?.note}
+            </p>
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={rows} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
@@ -159,7 +193,7 @@ export function RtTracking({ onNavigate }: {onNavigate?: (route: string) => void
                   <YAxis yAxisId="rt" orientation="right" tick={CHART.tick} axisLine={false} tickLine={false} width={36} domain={[0, 'auto']} />
                   <Tooltip
                     contentStyle={CHART.tooltip}
-                    formatter={(v: number | number[] | null, key: string) => {
+                    formatter={(v, key) => {
                       if (key === 'band') return [Array.isArray(v) ? `${v[0]}–${v[1]}` : '—', 'Rt 95% range'];
                       if (key === 'rt') return [v ?? '—', 'Rt'];
                       return [v, 'Cases'];

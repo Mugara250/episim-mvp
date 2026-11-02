@@ -1,10 +1,9 @@
-import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Copy, Eye, Loader2, Lock, ShieldCheck, X } from 'lucide-react';
-import { MECHANISM_HELP, MECHANISM_LABELS } from '../../data/interventions';
 import { InterventionTypesState } from '../../hooks/useInterventionTypes';
 import { EffectMechanism } from '../../types/interventions';
+import { MECHANISM_HELP, MECHANISM_LABELS, leverLabel } from '../../utils/interventions';
 import { MechanismBadge } from './MechanismBadge';
 
 const inputCls = (error?: string) =>
@@ -137,7 +136,7 @@ export function TypePanel({ s }: {s: InterventionTypesState;}) {
                   d.mechanism === m ? 'border-primary/50 bg-hover' : 'border-border hover:border-primary/30'}`
                   }>
                   
-                        <input type="radio" name="mechanism" className="mt-1 accent-primary" checked={d.mechanism === m} onChange={() => s.setDraft({ ...d, mechanism: m })} />
+                        <input type="radio" name="mechanism" className="mt-1 accent-primary" checked={d.mechanism === m} onChange={() => s.setMechanism(m)} />
                         <span>
                           <span className="block text-[13px] font-semibold text-text-primary">{MECHANISM_LABELS[m]}</span>
                           <span className="block text-[12px] text-text-secondary mt-0.5">{MECHANISM_HELP[m]}</span>
@@ -145,6 +144,35 @@ export function TypePanel({ s }: {s: InterventionTypesState;}) {
                       </label>
                 )}
                   </div>
+              }
+              </div>
+
+              <div>
+                <label htmlFor="type-lever" className={labelCls}>Model lever</label>
+                {ro ?
+              <div className={readCls}>
+                    <span className="block text-[13px] font-semibold">{leverLabel(d.engineLever)}</span>
+                    <span className="block text-[12px] text-text-secondary mt-0.5">{t?.leverDescription}</span>
+                  </div> :
+
+              <>
+                    <select
+                  id="type-lever"
+                  value={d.engineLever}
+                  onChange={(ev) => s.setDraft({ ...d, engineLever: ev.target.value })}
+                  aria-invalid={!!e.engineLever}
+                  className={inputCls(e.engineLever)}>
+                  
+                      {s.levers.map((l) =>
+                  <option key={l.lever} value={l.lever} disabled={(d.mechanism === 'shift') !== (l.lever === 'vaccination')}>
+                          {leverLabel(l.lever)}
+                        </option>
+                  )}
+                    </select>
+                    <p className={`text-[12px] mt-1.5 ${e.engineLever ? 'text-danger' : 'text-text-secondary'}`}>
+                      {e.engineLever || s.levers.find((l) => l.lever === d.engineLever)?.description || 'The part of the SEIHFR model this type changes while active.'}
+                    </p>
+                  </>
               }
               </div>
 

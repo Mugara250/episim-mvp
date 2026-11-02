@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowRightLeft, Gauge } from 'lucide-react';
-import { MECHANISM_HELP, MECHANISM_LABELS } from '../../data/interventions';
+import { MECHANISM_HELP, MECHANISM_LABELS } from '../../utils/interventions';
 import { EffectMechanism } from '../../types/interventions';
 
 export function MechanismBadge({ mechanism, tooltip = true }: {mechanism: EffectMechanism;tooltip?: boolean;}) {

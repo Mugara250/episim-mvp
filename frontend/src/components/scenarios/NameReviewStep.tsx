@@ -1,8 +1,7 @@
-import React from 'react';
 import { Building2, Info, Lock, Pencil } from 'lucide-react';
-import { InterventionType } from '../../types/interventions';
+import { ScenarioRefs } from '../../api/scenarios';
 import { ScenarioDraft, Visibility } from '../../types/scenarios';
-import { datasetLabel, findDataset, findPackage, findPreset, formatPop, pct } from '../../utils/scenarios';
+import { findDataset, findPackage, findPreset, formatPop, pct } from '../../utils/scenarios';
 import { MiniTimeline } from './MiniTimeline';
 
 interface NameReviewStepProps {
@@ -11,7 +10,7 @@ interface NameReviewStepProps {
   errors: Partial<Record<'name' | 'datasetId' | 'presetId', string>>;
   readOnly: boolean;
   institution: string;
-  types: InterventionType[];
+  refs: ScenarioRefs;
   pinnedVersion?: number | null;
   onEdit: (step: number) => void;
 }
@@ -19,10 +18,10 @@ interface NameReviewStepProps {
 const inputCls =
 'w-full px-3 py-2.5 rounded-lg border bg-background text-[14px] text-text-primary focus:outline-none disabled:opacity-80 disabled:cursor-not-allowed';
 
-export function NameReviewStep({ draft, onChange, errors, readOnly, institution, types, pinnedVersion, onEdit }: NameReviewStepProps) {
-  const dataset = findDataset(draft.datasetId);
-  const preset = findPreset(draft.presetId);
-  const pkg = findPackage(draft.packageId);
+export function NameReviewStep({ draft, onChange, errors, readOnly, institution, refs, pinnedVersion, onEdit }: NameReviewStepProps) {
+  const dataset = findDataset(refs.datasets, draft.datasetId);
+  const preset = findPreset(refs.presets, draft.presetId);
+  const pkg = findPackage(refs.packages, draft.packageId);
   const visibilityOptions: {id: Visibility;label: string;help: string;}[] = [
   { id: 'private', label: 'Private (only me)', help: 'You can share it with specific people later.' },
   { id: 'institution', label: 'Share with my institution', help: `Everyone at ${institution} can view and clone it.` }];
@@ -36,7 +35,7 @@ export function NameReviewStep({ draft, onChange, errors, readOnly, institution,
     body: dataset ?
     <>
           <p className="text-[14px] font-semibold text-text-primary">
-            {datasetLabel({ datasetId: dataset.id, datasetVersion: pinnedVersion ?? dataset.version })}
+            {dataset.name} - v{pinnedVersion ?? dataset.version}
           </p>
           <p className="text-[12px] text-text-secondary">
             {dataset.coverage} · {formatPop(dataset.population)} people · {dataset.source}
@@ -51,10 +50,10 @@ export function NameReviewStep({ draft, onChange, errors, readOnly, institution,
     body: preset ?
     <>
           <p className="text-[14px] font-semibold text-text-primary">
-            {preset.name} <span className="text-[12px] font-normal text-text-secondary">· {preset.builtIn ? 'Built-in' : 'Custom'}</span>
+            {preset.name} <span className="text-[12px] font-normal text-text-secondary">· {preset.builtIn ? 'Built-in' : 'Custom'}{preset.provisional ? ' · Provisional' : ''}</span>
           </p>
           <p className="text-[12px] text-text-secondary tabular-nums">
-            R0 {preset.r0} · incubation {preset.incubationDays} d · infectious {preset.infectiousDays} d · fatality {pct(preset.mortality)}
+            R0 {preset.r0Likely} · incubation {preset.incubationDays} d · hospitalised {pct(preset.shareHospitalised)} · fatality {pct(preset.cfrHospital)} admitted, {pct(preset.cfrCommunity)} not admitted
           </p>
         </> :
     null
@@ -70,7 +69,7 @@ export function NameReviewStep({ draft, onChange, errors, readOnly, institution,
             {pkg.items.length} intervention{pkg.items.length === 1 ? '' : 's'}
           </p>
           <div className="max-w-sm">
-            <MiniTimeline pkg={pkg} types={types} />
+            <MiniTimeline pkg={pkg} types={refs.types} />
           </div>
         </> :
 
@@ -159,7 +158,7 @@ export function NameReviewStep({ draft, onChange, errors, readOnly, institution,
           <span className="w-40 flex-shrink-0 text-[12px] font-medium text-text-secondary pt-0.5">Model type</span>
           <div className="flex-1 flex items-center gap-2 text-[14px] text-text-primary">
             <Lock size={13} className="text-text-secondary" aria-hidden />
-            SEIR (compartmental)
+            Stochastic SEIHFR (community, hospital and funeral spread)
             <span className="relative group inline-flex">
               <button type="button" aria-label="About model types" className="text-text-secondary hover:text-primary">
                 <Info size={14} />
@@ -168,7 +167,7 @@ export function NameReviewStep({ draft, onChange, errors, readOnly, institution,
                 role="tooltip"
                 className="pointer-events-none absolute left-1/2 bottom-full mb-2 -translate-x-1/2 w-64 rounded-lg bg-text-primary text-surface text-[12px] px-3 py-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-out z-10">
                 
-                Agent-based and geographic models are not yet available in this prototype.
+                National or geographic (30 districts) is chosen when you run the scenario. Agent-based models are out of scope.
               </span>
             </span>
           </div>

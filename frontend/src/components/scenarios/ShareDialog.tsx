@@ -1,47 +1,67 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Building2, Search, User, X } from 'lucide-react';
-import { COLLEAGUES, SHARE_INSTITUTIONS } from '../../data/scenarioLibrary';
-import { Scenario, ScenarioShare, SharePermission } from '../../types/scenarios';
+import { useShareTargets } from '../../api/scenarios';
+import { Scenario, SharePermission } from '../../types/scenarios';
 import { PERMISSION_LABELS } from '../../utils/scenarios';
+
+type ShareInput = {kind: 'user' | 'institution';targetId: string;permission: SharePermission;};
 
 interface ShareDialogProps {
   scenario: Scenario;
   onClose: () => void;
-  onChange: (shares: ScenarioShare[]) => void;
-  onShared: (text: string) => void;
+  /** Sends the full share list to the API; `text` is the toast shown once it is saved. */
+  onChange: (shares: ShareInput[], text?: string) => void;
 }
+
+const ROLE_NAMES: Record<string, string> = {
+  analyst: 'Epidemiologist',
+  officer: 'Public Health Officer',
+  policymaker: 'Policy Maker',
+  admin: 'Administrator'
+};
 
 const fieldCls = 'w-full px-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary';
 
-export function ShareDialog({ scenario, onClose, onChange, onShared }: ShareDialogProps) {
+export function ShareDialog({ scenario, onClose, onChange }: ShareDialogProps) {
   const [kind, setKind] = useState<'user' | 'institution'>('user');
   const [query, setQuery] = useState('');
   const [person, setPerson] = useState<string | null>(null);
   const [institution, setInstitution] = useState('');
   const [permission, setPermission] = useState<SharePermission>('view');
 
+  const targets = useShareTargets();
   const existing = scenario.shares;
+  const asInput = (list: typeof existing): ShareInput[] =>
+  list.map((sh) => ({ kind: sh.kind as ShareInput['kind'], targetId: sh.targetId, permission: sh.permission as SharePermission }));
+  const users = targets.data?.users ?? [];
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return COLLEAGUES.filter(
-      (c) => c.name !== scenario.owner && !existing.some((s) => s.kind === 'user' && s.target === c.name) && (!q || c.name.toLowerCase().includes(q) || c.institution.toLowerCase().includes(q))
-    ).slice(0, 5);
-  }, [query, existing, scenario.owner]);
-  const target = kind === 'user' ? person : institution;
-  const freeInstitutions = SHARE_INSTITUTIONS.filter((i) => !existing.some((s) => s.kind === 'institution' && s.target === i));
+    return users.
+    filter(
+      (c) =>
+      c.id !== scenario.ownerId &&
+      !existing.some((s) => s.kind === 'user' && s.targetId === c.id) && (
+      !q || c.name.toLowerCase().includes(q) || (c.institution ?? '').toLowerCase().includes(q))
+    ).
+    slice(0, 5);
+  }, [query, existing, scenario.ownerId, users]);
+  const personName = users.find((u) => u.id === person)?.name ?? null;
+  const freeInstitutions = (targets.data?.institutions ?? []).filter((i) => !existing.some((s) => s.kind === 'institution' && s.targetId === i.id));
+  const targetId = kind === 'user' ? person : institution;
+  const targetName = kind === 'user' ? personName : freeInstitutions.find((i) => i.id === institution)?.name;
 
   const add = () => {
-    if (!target) return;
-    onChange([...existing, { id: `sh-${Date.now()}`, kind, target, permission }]);
-    onShared(`Shared with ${target} · ${PERMISSION_LABELS[permission]}.`);
+    if (!targetId) return;
+    onChange([...asInput(existing), { kind, targetId, permission }], `Shared with ${targetName} · ${PERMISSION_LABELS[permission]}.`);
     setPerson(null);
     setQuery('');
     setInstitution('');
   };
-  const revoke = (id: string) => onChange(existing.filter((s) => s.id !== id));
-  const updatePermission = (id: string, p: SharePermission) => onChange(existing.map((s) => s.id === id ? { ...s, permission: p } : s));
+  const revoke = (id: string) => onChange(asInput(existing.filter((s) => s.id !== id)), 'Access removed.');
+  const updatePermission = (id: string, p: SharePermission) =>
+  onChange(asInput(existing.map((s) => s.id === id ? { ...s, permission: p } : s)), 'Permission updated.');
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
@@ -90,7 +110,7 @@ export function ShareDialog({ scenario, onClose, onChange, onShared }: ShareDial
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" aria-hidden />
                 <input
                 id="share-user"
-                value={person ?? query}
+                value={personName ?? query}
                 onChange={(e) => {
                   setPerson(null);
                   setQuery(e.target.value);
@@ -99,16 +119,18 @@ export function ShareDialog({ scenario, onClose, onChange, onShared }: ShareDial
                 className={`${fieldCls} pl-9`} />
               
               </div>
-              {!person &&
+              {targets.isLoading && <p className="mt-2 text-[13px] text-text-secondary">Loading colleagues…</p>}
+              {targets.error && <p className="mt-2 text-[13px] text-danger">Couldn’t load colleagues: {targets.error.message}</p>}
+              {!person && !targets.isLoading &&
             <ul className="mt-2 rounded-lg border border-border divide-y divide-border">
                   {matches.length === 0 ?
               <li className="px-3 py-3 text-[13px] text-text-secondary">No matching colleagues.</li> :
 
               matches.map((c) =>
-              <li key={c.name}>
-                        <button onClick={() => setPerson(c.name)} className="w-full text-left px-3 py-2.5 hover:bg-hover transition-colors">
+              <li key={c.id}>
+                        <button onClick={() => setPerson(c.id)} className="w-full text-left px-3 py-2.5 hover:bg-hover transition-colors">
                           <span className="block text-[13px] font-medium text-text-primary">{c.name}</span>
-                          <span className="block text-[12px] text-text-secondary">{c.role} · {c.institution}</span>
+                          <span className="block text-[12px] text-text-secondary">{ROLE_NAMES[c.role] ?? c.role}{c.institution ? ` · ${c.institution}` : ''}</span>
                         </button>
                       </li>
               )
@@ -122,7 +144,7 @@ export function ShareDialog({ scenario, onClose, onChange, onShared }: ShareDial
               <select id="share-inst" value={institution} onChange={(e) => setInstitution(e.target.value)} className={fieldCls}>
                 <option value="">Choose an institution</option>
                 {freeInstitutions.map((i) =>
-              <option key={i} value={i}>{i}</option>
+              <option key={i.id} value={i.id}>{i.name}</option>
               )}
               </select>
             </div>
@@ -138,7 +160,7 @@ export function ShareDialog({ scenario, onClose, onChange, onShared }: ShareDial
             </div>
             <button
               onClick={add}
-              disabled={!target}
+              disabled={!targetId}
               className="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               
               Share

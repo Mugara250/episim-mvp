@@ -1,8 +1,5 @@
-import React from 'react';
 import { ArrowLeft, ArrowRight, Copy, Info, Loader2, PlayCircle, Save } from 'lucide-react';
-import { InterventionPackage, InterventionType } from '../../types/interventions';
-import { DiseasePreset } from '../../types/presets';
-import { PopulationDataset } from '../../types/scenarios';
+import { ScenarioRefs } from '../../api/scenarios';
 import { BUILDER_STEPS, BuilderState } from '../../hooks/useScenarioBuilder';
 import { ImportStepper } from '../populationImport/ImportStepper';
 import { BuilderSummary } from './BuilderSummary';
@@ -13,10 +10,7 @@ import { NameReviewStep } from './NameReviewStep';
 
 interface ScenarioBuilderProps {
   b: BuilderState;
-  datasets: PopulationDataset[];
-  presets: DiseasePreset[];
-  packages: InterventionPackage[];
-  types: InterventionType[];
+  refs: ScenarioRefs;
   institution: string;
   canClone: boolean;
   canRun: boolean;
@@ -31,13 +25,14 @@ const secondaryBtn =
 const primaryBtn =
 'bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-[13px] font-semibold flex items-center gap-2 whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 
-export function ScenarioBuilder({ b, datasets, presets, packages, types, institution, canClone, canRun, onClose, onClone, onRun, link }: ScenarioBuilderProps) {
+export function ScenarioBuilder({ b, refs, institution, canClone, canRun, onClose, onClone, onRun, link }: ScenarioBuilderProps) {
   const { draft, step, readOnly, mode, base } = b;
   const set = (patch: Partial<typeof draft>) => b.setDraft({ ...draft, ...patch });
   const pinned = mode.kind === 'view' || mode.kind === 'draft' ? base?.datasetVersion : null;
   const title =
   mode.kind === 'view' ? base?.name ?? 'Scenario' : mode.kind === 'clone' ? 'Clone scenario' : mode.kind === 'draft' ? 'Finish draft' : 'New scenario';
   const busy = b.saving !== null;
+  const { datasets, presets, packages, types } = refs;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
@@ -66,6 +61,12 @@ export function ScenarioBuilder({ b, datasets, presets, packages, types, institu
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
         <section className="bg-surface rounded-xl border border-border min-w-0">
           <div className="p-6 md:p-8">
+            {refs.isLoading &&
+            <p className="flex items-center gap-2 text-[13px] text-text-secondary mb-4">
+                <Loader2 size={14} className="animate-spin" /> Loading datasets, diseases and packages…
+              </p>
+            }
+            {refs.error && <p className="text-[13px] text-danger mb-4">Couldn’t load the lists to choose from: {refs.error.message}</p>}
             {step === 0 && <DatasetStep datasets={datasets} value={draft.datasetId} onChange={(id) => set({ datasetId: id })} onImport={link('/population')} />}
             {step === 1 && <DiseaseStep presets={presets} value={draft.presetId} onChange={(id) => set({ presetId: id })} onOpenPresets={link('/presets')} />}
             {step === 2 &&
@@ -86,7 +87,7 @@ export function ScenarioBuilder({ b, datasets, presets, packages, types, institu
               errors={b.errors}
               readOnly={readOnly}
               institution={institution}
-              types={types}
+              refs={refs}
               pinnedVersion={pinned}
               onEdit={b.goTo} />
 
@@ -148,7 +149,7 @@ export function ScenarioBuilder({ b, datasets, presets, packages, types, institu
           </div>
         </section>
 
-        <BuilderSummary draft={draft} seenInterventions={b.seenInterventions} pinnedVersion={pinned} />
+        <BuilderSummary draft={draft} refs={refs} seenInterventions={b.seenInterventions} pinnedVersion={pinned} />
       </div>
     </div>);
 

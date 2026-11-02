@@ -1,14 +1,71 @@
-import { InterventionPackage, InterventionType, PackageItem, TypeDraft } from '../types/interventions';
+import type { ApiInterventionType, ApiPackage } from '../api/interventions';
+import { EffectMechanism, InterventionPackage, InterventionType, PackageItem, TypeDraft } from '../types/interventions';
+
+export const MECHANISM_LABELS: Record<EffectMechanism, string> = {
+  rate: 'Rate multiplier',
+  shift: 'Compartment shift'
+};
+
+export const MECHANISM_HELP: Record<EffectMechanism, string> = {
+  rate: 'Lowers how easily the disease spreads while the intervention is active. Example: lockdown, masking, testing, contact tracing.',
+  shift: 'Moves people straight from “can catch it” (Susceptible) to “protected” (Recovered). Example: vaccination.'
+};
+
+/** Short names for the model levers (the API supplies the long descriptions). */
+export const LEVER_LABELS: Record<string, string> = {
+  contact_tracing: 'Contact tracing',
+  isolation: 'Isolation',
+  safe_burial: 'Safe burial',
+  detection: 'Detection delay',
+  community: 'Community spread',
+  hospital: 'Hospital spread',
+  masking: 'Community and hospital spread',
+  vaccination: 'Vaccination (S → R)'
+};
+
+export const leverLabel = (lever: string | undefined) => lever ? LEVER_LABELS[lever] ?? lever : '—';
+
+export const fromApiType = (t: ApiInterventionType): InterventionType => ({
+  id: t.id,
+  key: t.key,
+  name: t.name,
+  description: t.description ?? '',
+  builtIn: t.builtIn,
+  placeholder: t.placeholder,
+  mechanism: t.mechanism as EffectMechanism,
+  defaultEffect: t.defaultEffect,
+  source: t.source ?? '',
+  engineLever: t.engineLever,
+  leverDescription: t.leverDescription ?? ''
+});
+
+export const fromApiPackage = (p: ApiPackage): InterventionPackage => ({
+  id: p.id,
+  name: p.name,
+  description: p.description,
+  items: p.items.map((i) => ({
+    id: i.id,
+    typeId: i.typeId,
+    startDay: i.startDay,
+    endDay: i.endDay ?? null,
+    coverage: i.coverage,
+    customEffect: i.customEffect ?? null
+  })),
+  updated: new Date(p.updated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+  illustrative: p.illustrative,
+  scenariosUsing: p.scenariosUsing
+});
 
 export const toTypeDraft = (t: InterventionType): TypeDraft => ({
   name: t.name,
   key: t.key,
   mechanism: t.mechanism,
+  engineLever: t.engineLever ?? '',
   defaultEffect: String(Math.round(t.defaultEffect * 100)),
   source: t.source
 });
 
-export const BLANK_TYPE_DRAFT: TypeDraft = { name: '', key: '', mechanism: 'rate', defaultEffect: '30', source: '' };
+export const BLANK_TYPE_DRAFT: TypeDraft = { name: '', key: '', mechanism: 'rate', engineLever: 'contact_tracing', defaultEffect: '30', source: '' };
 
 export const sameTypeDraft = (a: TypeDraft, b: TypeDraft) =>
 (Object.keys(a) as (keyof TypeDraft)[]).every((k) => String(a[k]).trim() === String(b[k]).trim());
@@ -33,6 +90,9 @@ export function validateTypeDraft(d: TypeDraft, types: InterventionType[], selfI
   if (!v) errors.defaultEffect = 'Enter the default effect size.';else
   if (!Number.isFinite(n)) errors.defaultEffect = 'Effect size must be a number.';else
   if (n < 0 || n > 100) errors.defaultEffect = 'Effect size must be between 0% and 100%.';
+  if (!d.engineLever) errors.engineLever = 'Choose the part of the model this acts on.';else
+  if ((d.mechanism === 'shift') !== (d.engineLever === 'vaccination'))
+  errors.engineLever = d.mechanism === 'shift' ? 'A compartment shift acts on the vaccination lever.' : 'Only a compartment shift can use the vaccination lever.';
   return errors;
 }
 

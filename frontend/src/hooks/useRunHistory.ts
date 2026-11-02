@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import { RunStatus, SimulationRun } from '../types/simulationRuns';
-import { Scenario } from '../types/scenarios';
 
 export type StatusFilter = 'all' | RunStatus;
 
 /** Filters and selection for the History tab. */
-export function useRunHistory(runs: SimulationRun[], findScenario: (id: string) => Scenario | undefined, userName: string) {
+export function useRunHistory(runs: SimulationRun[], userId: string) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [disease, setDisease] = useState('all');
@@ -17,22 +16,21 @@ export function useRunHistory(runs: SimulationRun[], findScenario: (id: string) 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return runs.filter((r) => {
-      const sc = findScenario(r.scenarioId);
       const day = r.startedAt.slice(0, 10);
       return (
         (status === 'all' || r.status === status) && (
-        disease === 'all' || sc?.presetId === disease) && (
+        disease === 'all' || r.disease === disease) && (
         !from || day >= from) && (
         !to || day <= to) && (
-        !onlyMine || r.requestedBy === userName) && (
-        !q || (sc?.name ?? '').toLowerCase().includes(q)));
+        !onlyMine || r.requestedById === userId) && (
+        !q || r.scenarioName.toLowerCase().includes(q) || r.id.toLowerCase().includes(q)));
 
     });
-  }, [runs, findScenario, query, status, disease, from, to, onlyMine, userName]);
+  }, [runs, query, status, disease, from, to, onlyMine, userId]);
 
   const diseaseIds = useMemo(
-    () => Array.from(new Set(runs.map((r) => findScenario(r.scenarioId)?.presetId).filter((x): x is string => !!x))),
-    [runs, findScenario]
+    () => Array.from(new Set(runs.map((r) => r.disease).filter((x): x is string => !!x))),
+    [runs]
   );
 
   const filtersActive = !!query.trim() || status !== 'all' || disease !== 'all' || !!from || !!to || onlyMine;

@@ -1,4 +1,3 @@
-import React from 'react';
 import { landingModules } from '../../data/landing';
 
 export function ModulesStrip() {

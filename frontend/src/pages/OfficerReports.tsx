@@ -1,38 +1,43 @@
-import React, { useState } from 'react';
-import { Download, Eye, X } from 'lucide-react';
-import { hospitalReports } from '../data/hospitalReports';
-import { ownHospital } from '../data/hospital';
+import { useState } from 'react';
+import { Download, Eye, Loader2, X } from 'lucide-react';
+import { downloadReportPdf, useHospitalReports, useOwnHospital } from '../api/officer';
+import { IllustrativeBadge, QueryState } from '../components/officer/DataState';
 import { HospitalReport } from '../types/officer';
-
-function exportReport(r: HospitalReport) {
-  const text = [
-  r.title,
-  `${ownHospital.name} · ${r.period}`,
-  `Published ${r.published} by ${r.by}`,
-  '',
-  r.summary,
-  '',
-  ...r.figures.map((f) => `${f.label}: ${f.value} (${f.range})`),
-  '',
-  'Projections are scenario estimates with uncertainty ranges, not exact predictions.'].
-  join('\n');
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${r.id}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export function OfficerReports() {
   const [viewing, setViewing] = useState<HospitalReport | null>(null);
+  const reportsQ = useHospitalReports();
+  const hospitalQ = useOwnHospital();
+  const hospitalReports = reportsQ.data ?? [];
+  const hospitalName = hospitalQ.data?.name ?? 'your hospital';
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // PDFs are generated on the server from the approved report content.
+  const exportReport = async (r: HospitalReport) => {
+    setExportError(null);
+    setExporting(r.id);
+    try {
+      await downloadReportPdf(r.id);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : 'The PDF could not be generated.');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <div className="mb-2">
         <h1 className="text-h1 text-text-primary mb-1">Reports</h1>
-        <p className="text-body text-text-secondary">Published reports for {ownHospital.name} only.</p>
+        <p className="text-body text-text-secondary">Published reports for {hospitalName} only.</p>
       </div>
+
+      {exportError &&
+      <div role="alert" className="text-[13px] text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">{exportError}</div>
+      }
+
+      <QueryState isLoading={reportsQ.isLoading} error={reportsQ.error}>
 
       <section className="bg-surface rounded-xl border border-border overflow-hidden">
         {hospitalReports.length === 0 ?
@@ -42,15 +47,15 @@ export function OfficerReports() {
             {hospitalReports.map((r) =>
           <li key={r.id} className="px-6 py-4 flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-[14px] font-semibold text-text-primary">{r.title}</h2>
+                  <h2 className="text-[14px] font-semibold text-text-primary flex items-center gap-2 flex-wrap">{r.title}{r.illustrative && <IllustrativeBadge />}</h2>
                   <p className="text-[12px] text-text-secondary mt-1">{r.type} · {r.period} · published {r.published} by {r.by}</p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <button onClick={() => setViewing(r)} className="bg-surface border border-border hover:border-primary/40 text-text-primary px-3 py-2 rounded-lg text-[12px] font-semibold flex items-center transition-colors">
                     <Eye size={13} className="mr-1.5" /> View
                   </button>
-                  <button onClick={() => exportReport(r)} className="bg-surface border border-border hover:border-primary/40 text-text-primary px-3 py-2 rounded-lg text-[12px] font-semibold flex items-center transition-colors">
-                    <Download size={13} className="mr-1.5" /> Export
+                  <button onClick={() => exportReport(r)} disabled={exporting === r.id} className="bg-surface border border-border hover:border-primary/40 text-text-primary px-3 py-2 rounded-lg text-[12px] font-semibold flex items-center transition-colors disabled:opacity-60">
+                    {exporting === r.id ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Download size={13} className="mr-1.5" />} Export PDF
                   </button>
                 </div>
               </li>
@@ -58,6 +63,7 @@ export function OfficerReports() {
           </ul>
         }
       </section>
+      </QueryState>
 
       {viewing &&
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setViewing(null)}>
@@ -71,7 +77,7 @@ export function OfficerReports() {
             <header className="flex items-start justify-between gap-4 p-6 border-b border-border">
               <div>
                 <h2 id="rep-title" className="text-h2 text-text-primary">{viewing.title}</h2>
-                <p className="text-[12px] text-text-secondary mt-1">{ownHospital.name} · {viewing.period} · {viewing.by}</p>
+                <p className="text-[12px] text-text-secondary mt-1">{hospitalName} · {viewing.period} · {viewing.by}</p>
               </div>
               <button onClick={() => setViewing(null)} aria-label="Close" className="p-1 text-text-secondary hover:text-text-primary"><X size={18} /></button>
             </header>
@@ -90,11 +96,11 @@ export function OfficerReports() {
                 )}
                 </tbody>
               </table>
-              <p className="text-[12px] text-text-secondary">Projections are scenario estimates with uncertainty ranges, not exact predictions.</p>
+              <p className="text-[12px] text-text-secondary">{viewing.estimateNote ?? 'Projections are scenario estimates with uncertainty ranges, not exact predictions.'}</p>
             </div>
             <footer className="flex justify-end p-5 border-t border-border bg-background/50 rounded-b-xl">
-              <button onClick={() => exportReport(viewing)} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-semibold flex items-center transition-colors">
-                <Download size={14} className="mr-2" /> Export
+              <button onClick={() => exportReport(viewing)} disabled={exporting === viewing.id} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-semibold flex items-center transition-colors disabled:opacity-60">
+                {exporting === viewing.id ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Download size={14} className="mr-2" />} Export PDF
               </button>
             </footer>
           </article>

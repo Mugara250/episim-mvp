@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { inputCls, labelCls } from '../models/chartTheme';
 import { OfficerDisease, PlanAction, PlanStatus, ResponsePlan } from '../../types/officer';

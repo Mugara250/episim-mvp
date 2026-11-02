@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { scenarioSeed, USER_INSTITUTIONS } from '../data/scenarioLibrary';
-import { BuilderMode, LibraryTab, SaveAction, Scenario, ScenarioDraft, ScenarioShare } from '../types/scenarios';
-import { accessFor, findDataset, findPreset, todayLabel } from '../utils/scenarios';
+import { useScenarioList, useScenarioMutations, useScenarioRefs } from '../api/scenarios';
+import { errorMessage } from '../api/http';
+import { getAccessLevel } from '../lib/rbac';
+import { Access, BuilderMode, LibraryTab, SaveAction, Scenario, ScenarioDraft, SharePermission } from '../types/scenarios';
 import { useToasts } from './useToasts';
 
 export interface ScenarioScreenInit {
@@ -10,10 +11,6 @@ export interface ScenarioScreenInit {
   scenarioMode?: BuilderMode['kind'];
   scenarioId?: string;
   builderStep?: number;
-  shareOpen?: string;
-  scenarioLoading?: boolean;
-  scenariosEmpty?: boolean;
-  scenarioNoConfig?: boolean;
 }
 
 function initialMode(init: ScenarioScreenInit): BuilderMode | null {
@@ -28,40 +25,34 @@ function initialMode(init: ScenarioScreenInit): BuilderMode | null {
 interface ScenarioCallbacks {
   /** Opens the Simulations page with this scenario selected. */
   onRun: (s: Scenario) => void;
-  /** Lets other pages (Simulations) see scenarios saved this session. */
-  onSaved: (s: Scenario) => void;
 }
 
-export function useScenarios(init: ScenarioScreenInit, { onRun, onSaved }: ScenarioCallbacks) {
-  const { role, userName } = useAuth();
-  const toasts = useToasts();
-  const isAdmin = role === 'admin';
-  const institution = USER_INSTITUTIONS[role];
-  const canCreate = isAdmin || role === 'analyst' || role === 'officer';
+const message = (e: unknown) => e instanceof Error ? e.message : errorMessage(e, 'Something went wrong. Try again.');
 
-  const [scenarios, setScenarios] = useState<Scenario[]>(() => init.scenariosEmpty ? [] : scenarioSeed);
-  const [loading, setLoading] = useState(true);
+export function useScenarios(init: ScenarioScreenInit, { onRun }: ScenarioCallbacks) {
+  const { role, user, userName } = useAuth();
+  const toasts = useToasts();
+  const list = useScenarioList();
+  const refs = useScenarioRefs();
+  const m = useScenarioMutations();
+  const isAdmin = role === 'admin';
+  const institution = user?.institutionName ?? '';
+  const level = getAccessLevel(role, 'scenarios');
+  const canCreate = isAdmin || role === 'analyst' || role === 'officer';
+  const canRun = ['full', 'write'].includes(getAccessLevel(role, 'simulation'));
+
+  const scenarios = useMemo(() => list.data ?? [], [list.data]);
   const [tab, setTab] = useState<LibraryTab>(init.scenarioTab ?? (role === 'policymaker' ? 'shared' : 'mine'));
   const [query, setQuery] = useState('');
   const [diseaseFilter, setDiseaseFilter] = useState('all');
   const [datasetFilter, setDatasetFilter] = useState('all');
   const [mode, setMode] = useState<BuilderMode | null>(() => initialMode(init));
-  const [shareId, setShareId] = useState<string | null>(init.shareOpen ?? null);
+  const [shareId, setShareId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [seq, setSeq] = useState(1047);
 
-  useEffect(() => {
-    if (init.scenarioLoading) return;
-    const t = window.setTimeout(() => setLoading(false), 600);
-    return () => window.clearTimeout(t);
-  }, [init.scenarioLoading]);
-
-  const access = (s: Scenario) => accessFor(s, userName, institution, isAdmin);
-  const mine = useMemo(() => scenarios.filter((s) => s.owner === userName), [scenarios, userName]);
-  const shared = useMemo(
-    () => scenarios.filter((s) => s.owner !== userName && accessFor(s, userName, institution, isAdmin) !== null),
-    [scenarios, userName, institution, isAdmin]
-  );
+  const access = (s: Scenario) => (s.access ?? null) as Access | null;
+  const mine = useMemo(() => scenarios.filter((s) => s.ownerId === user?.id), [scenarios, user?.id]);
+  const shared = useMemo(() => scenarios.filter((s) => s.ownerId !== user?.id && s.access !== null), [scenarios, user?.id]);
 
   const source = tab === 'mine' ? mine : shared;
   const filtered = useMemo(() => {
@@ -80,9 +71,10 @@ export function useScenarios(init: ScenarioScreenInit, { onRun, onSaved }: Scena
     setDatasetFilter('all');
   };
 
+  // Policy makers ("review") may clone scenarios shared with clone permission.
   const canClone = (s: Scenario) => {
     const a = access(s);
-    return !s.draft && (a === 'owner' || a === 'admin' || a === 'clone');
+    return level !== 'none' && !s.draft && (a === 'owner' || a === 'admin' || a === 'clone');
   };
   const canManage = (s: Scenario) => {
     const a = access(s);
@@ -91,61 +83,72 @@ export function useScenarios(init: ScenarioScreenInit, { onRun, onSaved }: Scena
 
   const remove = (id: string) => {
     const s = scenarios.find((x) => x.id === id);
-    setScenarios((list) => list.filter((x) => x.id !== id));
-    setDeleteId(null);
-    toasts.push('success', `Deleted “${s?.name ?? 'scenario'}”.`);
+    m.remove.mutate(id, {
+      onSuccess: () => toasts.push('success', `Deleted “${s?.name ?? 'scenario'}”.`),
+      onError: (e) => toasts.push('error', message(e)),
+      onSettled: () => setDeleteId(null)
+    });
   };
 
-  const setShares = (id: string, shares: ScenarioShare[]) =>
-  setScenarios((list) => list.map((s) => s.id === id ? { ...s, shares } : s));
+  const setShares = (id: string, shares: {kind: 'user' | 'institution';targetId: string;permission: SharePermission;}[], done?: (text: string) => void, text?: string) =>
+  m.setShares.mutate(
+    { id, shares },
+    {
+      onSuccess: () => done && text && done(text),
+      onError: (e) => toasts.push('error', message(e))
+    }
+  );
 
   const run = (s: Scenario) => onRun(s);
 
-  const save = (draft: ScenarioDraft, action: SaveAction, editingId: string | null) => {
-    const id = editingId ?? `SC-${seq}`;
-    if (!editingId) setSeq((n) => n + 1);
-    const record: Scenario = {
-      id,
-      name: draft.name.trim() || 'Untitled draft',
-      description: draft.description.trim(),
-      datasetId: draft.datasetId,
-      datasetVersion: findDataset(draft.datasetId)?.version ?? null,
-      presetId: draft.presetId,
-      packageId: draft.packageId,
-      owner: userName,
-      ownerInstitution: institution,
-      created: todayLabel(),
-      draft: action === 'draft',
-      shares:
-      draft.visibility === 'institution' ?
-      [{ id: `sh-${id}`, kind: 'institution', target: institution, permission: 'clone' }] :
-      []
-    };
-    setScenarios((list) => editingId ? list.map((s) => s.id === editingId ? record : s) : [record, ...list]);
-    onSaved(record);
-    setMode(null);
-    setTab('mine');
-    if (action === 'draft') toasts.push('success', 'Draft saved. Open it from My scenarios to finish it.');else
-    if (action === 'save') toasts.push('success', `Saved “${record.name}”.`);else
-    run(record);
+  /** Saves the builder's draft. Resolves to true on success so the builder can stop its spinner. */
+  const save = async (draft: ScenarioDraft, action: SaveAction, editing: BuilderMode): Promise<boolean> => {
+    const asDraft = action === 'draft';
+    try {
+      const record =
+      editing.kind === 'draft' ?
+      await m.update.mutateAsync({ id: editing.id, draft, asDraft }) :
+      editing.kind === 'clone' ?
+      await m.cloneAndSave.mutateAsync({ fromId: editing.fromId, draft, asDraft }) :
+      await m.create.mutateAsync({ draft, asDraft });
+      setMode(null);
+      setTab('mine');
+      if (action === 'draft') toasts.push('success', 'Draft saved. Open it from My scenarios to finish it.');else
+      if (action === 'save') toasts.push('success', `Saved “${record.name}”.`);else
+      run(record);
+      return true;
+    } catch (e) {
+      toasts.push('error', message(e));
+      return false;
+    }
   };
 
-  const diseaseOptions = useMemo(
-    () => Array.from(new Set(source.map((s) => s.presetId).filter((x): x is string => !!x))).map((id) => findPreset(id)!).filter(Boolean),
-    [source]
-  );
-  const datasetOptions = useMemo(
-    () => Array.from(new Set(source.map((s) => s.datasetId).filter((x): x is string => !!x))).map((id) => findDataset(id)!).filter(Boolean),
-    [source]
-  );
+  const diseaseOptions = useMemo(() => {
+    const ids = new Set(source.map((s) => s.presetId).filter((x): x is string => !!x));
+    return Array.from(ids).map((id) => {
+      const s = source.find((x) => x.presetId === id)!;
+      return { id, name: s.presetName ?? id };
+    });
+  }, [source]);
+  const datasetOptions = useMemo(() => {
+    const ids = new Set(source.map((s) => s.datasetId).filter((x): x is string => !!x));
+    return Array.from(ids).map((id) => {
+      const s = source.find((x) => x.datasetId === id)!;
+      return { id, name: s.datasetName ?? id };
+    });
+  }, [source]);
 
   return {
     role,
+    userId: user?.id ?? '',
     userName,
     institution,
     toasts,
+    refs,
     scenarios,
-    loading,
+    loading: list.isLoading,
+    error: list.error,
+    retry: () => list.refetch(),
     tab,
     setTab,
     query,
@@ -162,7 +165,7 @@ export function useScenarios(init: ScenarioScreenInit, { onRun, onSaved }: Scena
     diseaseOptions,
     datasetOptions,
     canCreate,
-    canRun: canCreate,
+    canRun,
     access,
     canClone,
     canManage,
@@ -172,6 +175,7 @@ export function useScenarios(init: ScenarioScreenInit, { onRun, onSaved }: Scena
     openShare: setShareId,
     closeShare: () => setShareId(null),
     deleteTarget: scenarios.find((s) => s.id === deleteId) ?? null,
+    deleting: m.remove.isPending,
     askDelete: setDeleteId,
     cancelDelete: () => setDeleteId(null),
     remove,

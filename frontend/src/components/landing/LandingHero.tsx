@@ -1,4 +1,3 @@
-import React from 'react';
 import { Play } from 'lucide-react';
 import { HeroChart } from './HeroChart';
 
@@ -13,7 +12,7 @@ export function LandingHero({ onNavigate }: LandingHeroProps) {
         <div>
           <div className="inline-flex items-center px-3 py-1 rounded-full bg-[#1FC7A5]/10 border border-[#1FC7A5]/20 text-[10px] font-code text-[#1FC7A5] mb-10">
             <span className="w-1.5 h-1.5 rounded-full bg-[#1FC7A5] mr-2 animate-pulse" />
-            Live Simulation Engine · Active
+            Demo · scenario estimates, not forecasts
           </div>
 
           <h1 className="text-[64px] sm:text-[96px] leading-[1] font-bold tracking-tight mb-12">
@@ -23,9 +22,9 @@ export function LandingHero({ onNavigate }: LandingHeroProps) {
           </h1>
 
           <p className="text-[14px] text-slate-300 max-w-[400px] mb-14 leading-[1.75]">
-            AI-driven epidemic simulation for public health authorities in
-            developing countries — built on SEIR, agent-based, and network
-            transmission models.
+            Epidemic scenario simulation for health decision-makers in Rwanda.
+            Ebola and Marburg first, on a stochastic SEIHFR model that shows
+            every result as a range.
           </p>
 
           <div className="flex items-center gap-3">
@@ -35,11 +34,13 @@ export function LandingHero({ onNavigate }: LandingHeroProps) {
               
               Start Simulation
             </button>
-            <button className="border border-white/15 hover:bg-white/5 text-white px-5 py-3 rounded-full text-[12px] font-semibold transition-colors flex items-center whitespace-nowrap">
+            <button
+              onClick={() => onNavigate('/about')}
+              className="border border-white/15 hover:bg-white/5 text-white px-5 py-3 rounded-full text-[12px] font-semibold transition-colors flex items-center whitespace-nowrap">
               <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center mr-2.5">
                 <Play size={8} className="fill-white text-white" />
               </span>
-              Watch Demo
+              About this demo
             </button>
           </div>
         </div>

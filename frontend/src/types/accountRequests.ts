@@ -10,8 +10,6 @@ export interface AccountRequest {
   institutionAccountId: string;
   /** Role or position the person holds at their institution, e.g. "District Epidemiologist". */
   position: string;
-  /** Prototype only — lets an approved requester sign in with the password they chose. */
-  password: string;
   status: AccountRequestStatus;
   /** ISO timestamp */
   submittedAt: string;
@@ -22,8 +20,11 @@ export interface AccountRequest {
   rejectionReason?: string;
   /** False until an administrator has opened the notification or requests page. */
   seenByAdmin: boolean;
+  /** Seeded sample request for the demo. */
+  illustrative?: boolean;
 }
 
-export type AccountRequestInput = Pick<
-  AccountRequest,
-  'name' | 'email' | 'institution' | 'institutionAccountId' | 'position' | 'password'>;
+export type AccountRequestInput = Pick<AccountRequest, 'name' | 'email' | 'institution' | 'institutionAccountId' | 'position'> & {
+  /** Sent once to the server, which stores only its hash; becomes the password when approved. */
+  password: string;
+};

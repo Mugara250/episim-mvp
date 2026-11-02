@@ -1,37 +1,46 @@
-import { useState } from 'react';
-import { interventionPackages } from '../data/interventions';
+import { useEffect, useMemo, useState } from 'react';
+import { useInterventionMutations, usePackagesQuery } from '../api/interventions';
 import { InterventionPackage, PackageItem } from '../types/interventions';
-import { samePackage, todayLabel, uniqueName } from '../utils/interventions';
+import { fromApiPackage, samePackage, todayLabel, uniqueName } from '../utils/interventions';
 import { Toasts } from './useToasts';
 
 export const NEW_PACKAGE = '__new_package__';
+
+const EMPTY: InterventionPackage = { id: '', name: '', description: '', items: [], updated: '' };
 
 interface Options {
   canEdit: boolean;
   toasts: Toasts;
   initialId?: string;
-  emptyPackage?: boolean;
-  openEditor?: boolean;
 }
 
-export function useInterventionPackages({ canEdit, toasts, initialId, emptyPackage, openEditor }: Options) {
-  const [packages, setPackages] = useState<InterventionPackage[]>(() =>
-  emptyPackage ?
-  [...interventionPackages, { id: 'pkg-empty', name: 'Marburg health-facility response', description: '', items: [], updated: '08 Oct 2026' }] :
-  interventionPackages
-  );
-  const firstId = emptyPackage ? 'pkg-empty' : initialId ?? packages[0]?.id;
-  const [selectedId, setSelectedId] = useState<string>(firstId);
-  const initialPkg = packages.find((p) => p.id === firstId) ?? packages[0];
-  const [draft, setDraft] = useState<InterventionPackage>(initialPkg);
-  const [saving, setSaving] = useState(false);
-  const [editor, setEditor] = useState<{itemId: string | null;} | null>(openEditor && canEdit ? { itemId: null } : null);
+export function useInterventionPackages({ canEdit, toasts, initialId }: Options) {
+  const query = usePackagesQuery();
+  const m = useInterventionMutations();
+  const packages: InterventionPackage[] = useMemo(() => (query.data ?? []).map(fromApiPackage), [query.data]);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? null);
+  const [draft, setDraft] = useState<InterventionPackage>(EMPTY);
+  const [editor, setEditor] = useState<{itemId: string | null;} | null>(null);
   const [confirm, setConfirm] = useState<null | (() => void)>(null);
+
+  // Open the first (or deep-linked) package once the list arrives.
+  useEffect(() => {
+    if (draft !== EMPTY || !packages.length) return;
+    const p = packages.find((x) => x.id === selectedId) ?? packages[0];
+    setSelectedId(p.id);
+    setDraft(p);
+  }, [packages, selectedId, draft]);
 
   const isNew = selectedId === NEW_PACKAGE;
   const saved = packages.find((p) => p.id === selectedId);
   const dirty = canEdit && (isNew || !!saved && !samePackage(draft, saved));
-  const nameError = canEdit && !draft.name.trim() ? 'Give the package a name.' : canEdit && packages.some((p) => p.id !== draft.id && p.name.trim().toLowerCase() === draft.name.trim().toLowerCase()) ? 'Another package already has this name.' : '';
+  const saving = m.createPackage.isPending || m.updatePackage.isPending;
+  const nameError =
+  canEdit && !draft.name.trim() ?
+  'Give the package a name.' :
+  canEdit && packages.some((p) => p.id !== draft.id && p.name.trim().toLowerCase() === draft.name.trim().toLowerCase()) ?
+  'Another package already has this name.' :
+  '';
 
   const guard = (fn: () => void) => dirty ? setConfirm(() => fn) : fn();
 
@@ -62,8 +71,8 @@ export function useInterventionPackages({ canEdit, toasts, initialId, emptyPacka
   const discard = () => {
     if (isNew) {
       const p = packages[0];
-      setSelectedId(p.id);
-      setDraft(p);
+      setSelectedId(p?.id ?? null);
+      setDraft(p ?? EMPTY);
     } else if (saved) setDraft(saved);
     setEditor(null);
   };
@@ -78,30 +87,38 @@ export function useInterventionPackages({ canEdit, toasts, initialId, emptyPacka
 
   const removeItem = (id: string) => setDraft((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }));
 
-  const save = () => {
+  const save = async () => {
     if (!dirty || saving) return;
     if (nameError) {
       toasts.push('error', 'Fix the package name before saving.');
       return;
     }
-    setSaving(true);
     const loading = toasts.push('loading', 'Saving package…');
-    toasts.later(() => {
-      const next: InterventionPackage = { ...draft, name: draft.name.trim(), description: draft.description.trim(), updated: todayLabel() };
-      if (isNew) {
-        next.id = `pkg-${Date.now()}`;
-        setPackages((list) => [...list, next]);
-        setSelectedId(next.id);
-      } else {
-        setPackages((list) => list.map((p) => p.id === next.id ? next : p));
-      }
+    const body = {
+      name: draft.name.trim(),
+      description: draft.description.trim(),
+      items: draft.items.map((i) => ({
+        typeId: i.typeId,
+        startDay: i.startDay,
+        endDay: i.endDay,
+        coverage: i.coverage,
+        customEffect: i.customEffect
+      }))
+    };
+    try {
+      const res = isNew ? await m.createPackage.mutateAsync(body) : await m.updatePackage.mutateAsync({ id: draft.id, body });
+      const next = fromApiPackage(res);
+      setSelectedId(next.id);
       setDraft(next);
-      setSaving(false);
       toasts.push('success', isNew ? 'Package created.' : 'Package saved.', loading);
-    }, 700);
+    } catch (e) {
+      toasts.push('error', e instanceof Error ? e.message : 'The package couldn’t be saved.', loading);
+    }
   };
 
   return {
+    loading: query.isLoading,
+    loadError: query.error instanceof Error ? query.error.message : null,
     packages,
     selectedId,
     isNew,

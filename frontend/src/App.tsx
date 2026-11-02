@@ -26,7 +26,6 @@ import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AnalystDashboard } from './pages/AnalystDashboard';
-import { AnalystScenarios } from './pages/AnalystScenarios';
 import { AnalystReports } from './pages/AnalystReports';
 import { OfficerProvider } from './context/OfficerContext';
 import { OfficerDashboard } from './pages/OfficerDashboard';
@@ -229,7 +228,7 @@ function MainArea() {
 
           <Route path="capacity" element={<CapacityProfiles />} />
           <Route path="scenarios" element={<Scenarios onNavigate={onNavigate} />} />
-          <Route path="scenario" element={isAnalyst ? <AnalystScenarios /> : isPolicy ? <PolicyScenarios /> : <ScenarioComparison />} />
+          <Route path="scenario" element={isPolicy ? <PolicyScenarios /> : <ScenarioComparison />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/:reportId" element={<ReportsPage />} />
           <Route path="settings" element={<Settings />} />

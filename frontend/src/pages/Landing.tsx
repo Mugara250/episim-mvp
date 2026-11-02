@@ -1,4 +1,3 @@
-import React from 'react';
 import { LandingNav } from '../components/landing/LandingNav';
 import { LandingHero } from '../components/landing/LandingHero';
 import { TrustedBy } from '../components/landing/TrustedBy';

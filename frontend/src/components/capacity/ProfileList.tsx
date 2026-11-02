@@ -1,6 +1,4 @@
-import React from 'react';
 import { Building2, Plus, Search } from 'lucide-react';
-import { institutions } from '../../data/capacityProfiles';
 import { CapacityState } from '../../hooks/useCapacityProfiles';
 import { fmt } from '../../utils/capacity';
 
@@ -37,7 +35,7 @@ export function ProfileList({ s }: {s: CapacityState;}) {
           className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
           
           <option value="all">All institutions and regions</option>
-          {institutions.map((i) =>
+          {s.institutions.map((i) =>
           <option key={i.id} value={i.id}>
               {i.name}
             </option>
@@ -58,7 +56,7 @@ export function ProfileList({ s }: {s: CapacityState;}) {
           </li>
         }
         {s.visible.map((p) => {
-          const inst = institutions.find((i) => i.id === p.institutionId);
+          const inst = s.institutions.find((i) => i.id === p.institutionId);
           const active = p.id === s.selectedId;
           const used = s.usage[p.id] ?? 0;
           return (
@@ -72,6 +70,9 @@ export function ProfileList({ s }: {s: CapacityState;}) {
                 
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-[13px] font-semibold text-text-primary truncate">{p.name}</span>
+                  {p.placeholder &&
+                  <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[11px] font-semibold flex-shrink-0">Illustrative</span>
+                  }
                   {active && s.dirty && <span className="w-2 h-2 rounded-full bg-warning mt-1.5 flex-shrink-0" aria-label="Unsaved changes" />}
                 </div>
                 <p className="text-[12px] text-text-secondary mt-0.5 flex items-center gap-1.5 truncate">

@@ -1,12 +1,108 @@
-import { AGGREGATE_FIELDS, DISTRICTS, MICRODATA_FIELDS, SECTORS } from '../data/populationImport';
-import {
-  CellIssue,
-  CheckedRow,
-  DetectedFormat,
-  FieldSpec,
-  ImportFormat,
-  Mapping } from
-'../types/populationImport';
+import { DetectedFormat, FieldSpec, ImportFormat, Mapping, RegionOption } from '../types/populationImport';
+
+// Row checks run on the server (POST /api/population/imports/check), so the screen and the
+// import always agree. This file only holds the field specs used for column matching, the
+// NISR region reference lists and small formatting helpers.
+
+/** Uploads above this are refused by the MVP backend. */
+export const MAX_FILE_BYTES = 50 * 1024 ** 2;
+/** Files up to this size are read completely in the browser to show columns and a preview. */
+export const FULL_READ_LIMIT_BYTES = 5 * 1024 ** 2;
+
+export const MICRODATA_FIELDS: FieldSpec[] = [
+{ key: 'household_id', label: 'Household ID', help: 'Same value for everyone in one household', required: true, synonyms: ['household_id', 'hh_id', 'hhid', 'household'] },
+{ key: 'person_id', label: 'Person ID', help: 'Number of the person within the household', required: true, synonyms: ['person_id', 'pid', 'pers_id', 'person'] },
+{ key: 'province_code', label: 'Province code', help: '1 to 5', required: true, synonyms: ['province_code', 'prov', 'province', 'prov_code'] },
+{ key: 'district_code', label: 'District code', help: '2 digits, e.g. 12 = Gasabo', required: true, synonyms: ['district_code', 'dist', 'district', 'dist_code'] },
+{ key: 'sector_code', label: 'Sector code', help: '4 digits, e.g. 1209 = Kimironko', required: true, synonyms: ['sector_code', 'sect', 'sector', 'sect_code'] },
+{ key: 'area_type', label: 'Urban or rural', help: 'urban / rural (or 1 / 2)', required: true, synonyms: ['area_type', 'urban_rural', 'ur', 'residence'] },
+{ key: 'sex', label: 'Sex', help: 'male / female (or 1 / 2)', required: true, synonyms: ['sex', 'gender'] },
+{ key: 'age', label: 'Age', help: 'Whole years, 0 to 122', required: true, synonyms: ['age', 'age_years', 'p_age'] },
+{ key: 'relationship_to_head', label: 'Relationship to head', help: 'e.g. head, spouse, child', required: true, synonyms: ['relationship_to_head', 'rel_head', 'relationship'] },
+{ key: 'marital_status', label: 'Marital status', help: 'Optional', required: false, synonyms: ['marital_status', 'marital', 'mstatus'] }];
+
+
+export const AGGREGATE_FIELDS: FieldSpec[] = [
+{ key: 'sub_region_id', label: 'Region code', help: 'District (2 digits) or sector (4 digits)', required: true, synonyms: ['sub_region_id', 'region_id', 'region_code', 'sector_code', 'sect'] },
+{ key: 'age_band', label: 'Age band', help: 'e.g. 0-4, 5-17, 65+', required: true, synonyms: ['age_band', 'age_group', 'ageband'] },
+{ key: 'population_count', label: 'Population count', help: 'Number of people', required: true, synonyms: ['population_count', 'population', 'count', 'pop'] },
+{ key: 'density_per_km2', label: 'Density per km²', help: 'Optional', required: false, synonyms: ['density_per_km2', 'density', 'pop_density'] },
+{ key: 'urban_rural', label: 'Urban or rural', help: 'urban / rural (or 1 / 2)', required: true, synonyms: ['urban_rural', 'area_type', 'ur'] }];
+
+
+export const PROVINCES: RegionOption[] = [
+{ code: '1', name: 'City of Kigali' },
+{ code: '2', name: 'Southern Province' },
+{ code: '3', name: 'Western Province' },
+{ code: '4', name: 'Northern Province' },
+{ code: '5', name: 'Eastern Province' }];
+
+
+/** NISR-style district codes (province digit first), matching the boundary file. */
+export const DISTRICTS: Record<string, RegionOption[]> = {
+  '1': [
+  { code: '11', name: 'Nyarugenge' },
+  { code: '12', name: 'Gasabo' },
+  { code: '13', name: 'Kicukiro' }],
+
+  '2': [
+  { code: '21', name: 'Nyanza' },
+  { code: '22', name: 'Gisagara' },
+  { code: '23', name: 'Nyaruguru' },
+  { code: '24', name: 'Huye' },
+  { code: '25', name: 'Nyamagabe' },
+  { code: '26', name: 'Ruhango' },
+  { code: '27', name: 'Muhanga' },
+  { code: '28', name: 'Kamonyi' }],
+
+  '3': [
+  { code: '31', name: 'Karongi' },
+  { code: '32', name: 'Rutsiro' },
+  { code: '33', name: 'Rubavu' },
+  { code: '34', name: 'Nyabihu' },
+  { code: '35', name: 'Ngororero' },
+  { code: '36', name: 'Rusizi' },
+  { code: '37', name: 'Nyamasheke' }],
+
+  '4': [
+  { code: '41', name: 'Rulindo' },
+  { code: '42', name: 'Gakenke' },
+  { code: '43', name: 'Musanze' },
+  { code: '44', name: 'Burera' },
+  { code: '45', name: 'Gicumbi' }],
+
+  '5': [
+  { code: '51', name: 'Rwamagana' },
+  { code: '52', name: 'Nyagatare' },
+  { code: '53', name: 'Gatsibo' },
+  { code: '54', name: 'Kayonza' },
+  { code: '55', name: 'Kirehe' },
+  { code: '56', name: 'Ngoma' },
+  { code: '57', name: 'Bugesera' }]
+
+};
+
+// Sector lists are loaded only for the districts the prototype models in detail. Sector numbering is
+// alphabetical within the district and has not been checked against NISR codes.
+export const SECTORS: Record<string, RegionOption[]> = {
+  '11': ['Gitega', 'Kanyinya', 'Kigali', 'Kimisagara', 'Mageragere', 'Muhima', 'Nyakabanda', 'Nyamirambo', 'Nyarugenge', 'Rwezamenyo'].map((n, i) => ({ code: `11${String(i + 1).padStart(2, '0')}`, name: n })),
+  '12': ['Bumbogo', 'Gatsata', 'Gikomero', 'Gisozi', 'Jabana', 'Jali', 'Kacyiru', 'Kimihurura', 'Kimironko', 'Kinyinya', 'Ndera', 'Nduba', 'Remera', 'Rusororo', 'Rutunga'].map((n, i) => ({ code: `12${String(i + 1).padStart(2, '0')}`, name: n })),
+  '13': ['Gahanga', 'Gatenga', 'Gikondo', 'Kagarama', 'Kanombe', 'Kicukiro', 'Kigarama', 'Masaka', 'Niboye', 'Nyarugunga'].map((n, i) => ({ code: `13${String(i + 1).padStart(2, '0')}`, name: n })),
+  '33': ['Bugeshi', 'Busasamana', 'Cyanzarwe', 'Gisenyi', 'Kanama', 'Kanzenze', 'Mudende', 'Nyakiriba', 'Nyamyumba', 'Nyundo', 'Rubavu', 'Rugerero'].map((n, i) => ({ code: `33${String(i + 1).padStart(2, '0')}`, name: n }))
+};
+
+export const SOURCES = ['NISR Census', 'NISR Survey (DHS / EICV)', 'Ministry of Health', 'District records', 'Other'];
+
+/** Illustrative rows for the downloadable template (invented, not census records). */
+export const TEMPLATE_HEADERS = MICRODATA_FIELDS.map((f) => f.key);
+export const TEMPLATE_ROWS = [
+['1209000141', '1', '1', '12', '1209', 'urban', 'female', '38', 'head', 'married'],
+['1209000141', '2', '1', '12', '1209', 'urban', 'male', '41', 'spouse', 'married'],
+['5701001203', '1', '5', '57', '5703', 'rural', 'female', '9', 'child', '']];
+
+
+/** An illustrative district-totals file shipped with the app (public/samples), for trying the import. */
+export const SAMPLE_FILE_URL = '/samples/episim_illustrative_district_counts.csv';
 
 export const fieldsFor = (format: ImportFormat): FieldSpec[] =>
 format === 'microdata' ? MICRODATA_FIELDS : AGGREGATE_FIELDS;
@@ -64,75 +160,3 @@ export function detectFormat(columns: string[]): DetectedFormat {
   if (agg >= 1 && micro <= 1) return 'aggregate';
   return 'unknown';
 }
-
-const URBAN_RURAL = ['urban', 'rural', '1', '2'];
-const SEXES = ['male', 'female', 'm', 'f', '1', '2'];
-const RELATIONS = ['head', 'spouse', 'child', 'stepchild', 'grandchild', 'parent', 'sibling', 'other relative', 'domestic worker', 'not related', 'other'];
-
-function validDistrict(code: string) {
-  return Object.values(DISTRICTS).some((list) => list.some((d) => d.code === code));
-}
-
-function validSector(code: string) {
-  if (!/^\d{4}$/.test(code) || !validDistrict(code.slice(0, 2))) return false;
-  const known = SECTORS[code.slice(0, 2)];
-  return known ? known.some((s) => s.code === code) : Number(code.slice(2)) >= 1;
-}
-
-function checkMicro(v: Record<string, string>): CellIssue[] {
-  const issues: CellIssue[] = [];
-  const region = (field: string, message: string) => issues.push({ field, level: 'error', kind: 'Invalid region code', message });
-  for (const f of MICRODATA_FIELDS) {
-    if (f.required && !v[f.key]) issues.push({ field: f.key, level: 'error', kind: 'Missing required value', message: `${f.label} is empty` });
-  }
-  const prov = v.province_code;
-  const dist = v.district_code;
-  const sect = v.sector_code;
-  if (prov && !/^[1-5]$/.test(prov)) region('province_code', `Province must be 1 to 5, found “${prov}”`);
-  if (dist && (!validDistrict(dist) || prov && dist[0] !== prov)) region('district_code', `“${dist}” is not a district in province ${prov}`);
-  if (sect && (!validSector(sect) || dist && sect.slice(0, 2) !== dist)) region('sector_code', `“${sect}” is not a sector in district ${dist}`);
-  if (v.area_type && !URBAN_RURAL.includes(v.area_type.toLowerCase()))
-  issues.push({ field: 'area_type', level: 'error', kind: 'Unrecognised value', message: `Expected urban or rural, found “${v.area_type}”` });
-  if (v.sex && !SEXES.includes(v.sex.toLowerCase()))
-  issues.push({ field: 'sex', level: 'error', kind: 'Unrecognised value', message: `Expected male or female, found “${v.sex}”` });
-  if (v.age) {
-    const age = Number(v.age);
-    if (!Number.isInteger(age) || age < 0 || age > 122)
-    issues.push({ field: 'age', level: 'error', kind: 'Age out of range', message: `Age must be a whole number from 0 to 122, found “${v.age}”` });else
-    if (age >= 100) issues.push({ field: 'age', level: 'warning', kind: 'Check value', message: `Age ${age} is unusual. Please confirm it is correct.` });
-  }
-  if (v.relationship_to_head && !RELATIONS.includes(v.relationship_to_head.toLowerCase()))
-  issues.push({ field: 'relationship_to_head', level: 'warning', kind: 'Check value', message: `“${v.relationship_to_head}” will be imported as “other”` });
-  return issues;
-}
-
-function checkAggregate(v: Record<string, string>): CellIssue[] {
-  const issues: CellIssue[] = [];
-  for (const f of AGGREGATE_FIELDS) {
-    if (f.required && !v[f.key]) issues.push({ field: f.key, level: 'error', kind: 'Missing required value', message: `${f.label} is empty` });
-  }
-  const r = v.sub_region_id;
-  if (r && !(r.length === 2 ? validDistrict(r) : validSector(r)))
-  issues.push({ field: 'sub_region_id', level: 'error', kind: 'Invalid region code', message: `“${r}” is not a district or sector code` });
-  if (v.age_band && !/^\d{1,3}(-\d{1,3}|\+)$/.test(v.age_band))
-  issues.push({ field: 'age_band', level: 'error', kind: 'Unrecognised value', message: `Use a band like 0-4 or 65+, found “${v.age_band}”` });
-  if (v.population_count && !(Number.isInteger(Number(v.population_count)) && Number(v.population_count) >= 0))
-  issues.push({ field: 'population_count', level: 'error', kind: 'Unrecognised value', message: `Count must be a whole number, found “${v.population_count}”` });
-  if (v.density_per_km2 && !(Number(v.density_per_km2) >= 0))
-  issues.push({ field: 'density_per_km2', level: 'warning', kind: 'Check value', message: `Density “${v.density_per_km2}” is not a number and will be left blank` });
-  if (v.urban_rural && !URBAN_RURAL.includes(v.urban_rural.toLowerCase()))
-  issues.push({ field: 'urban_rural', level: 'error', kind: 'Unrecognised value', message: `Expected urban or rural, found “${v.urban_rural}”` });
-  return issues;
-}
-
-/** Maps raw file rows to EpiSim fields and checks each one. */
-export function checkRows(rows: Record<string, string>[], format: ImportFormat, mapping: Mapping): CheckedRow[] {
-  return rows.map((raw, i) => {
-    const values: Record<string, string> = {};
-    for (const f of fieldsFor(format)) values[f.key] = mapping[f.key] ? raw[mapping[f.key]] ?? '' : '';
-    return { line: i + 2, values, issues: format === 'microdata' ? checkMicro(values) : checkAggregate(values) };
-  });
-}
-
-export const hasError = (r: CheckedRow) => r.issues.some((i) => i.level === 'error');
-export const hasWarningOnly = (r: CheckedRow) => !hasError(r) && r.issues.length > 0;

@@ -1851,6 +1851,8 @@ export interface components {
         AccessRequestStatusOut: {
             /** Id */
             id: string;
+            /** Name */
+            name: string;
             /** Email */
             email: string;
             /** Status */
@@ -1860,6 +1862,10 @@ export interface components {
              * Format: date-time
              */
             submittedAt: string;
+            /** Decidedat */
+            decidedAt?: string | null;
+            /** Assignedrole */
+            assignedRole?: string | null;
             /** Rejectionreason */
             rejectionReason?: string | null;
         };

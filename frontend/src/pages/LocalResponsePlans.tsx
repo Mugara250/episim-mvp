@@ -1,25 +1,40 @@
-import React, { useState } from 'react';
-import { Plus, Pencil, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Pencil, CheckCircle2, Trash2 } from 'lucide-react';
 import { useOfficer } from '../context/OfficerContext';
 import { PlanEditor } from '../components/officer/PlanEditor';
-import { ownHospital } from '../data/hospital';
+import { IllustrativeBadge, QueryState } from '../components/officer/DataState';
 import { ResponsePlan } from '../types/officer';
 import { formatDay } from '../utils/hospital';
 
 export function LocalResponsePlans() {
-  const { plans, setPlans } = useOfficer();
+  const { hospital, plans, savePlan, deletePlan, isLoading, error } = useOfficer();
   const [editing, setEditing] = useState<ResponsePlan | 'new' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const save = (p: Omit<ResponsePlan, 'id' | 'updated'>) => {
-    if (editing === 'new') {
-      setPlans((list) => [{ ...p, id: `PLN-${String(list.length + 9).padStart(2, '0')}`, updated: ownHospital.today }, ...list]);
-      setNotice(`“${p.title}” created.`);
-    } else if (editing) {
-      setPlans((list) => list.map((x) => x.id === editing.id ? { ...x, ...p, updated: ownHospital.today } : x));
-      setNotice(`“${p.title}” updated.`);
+  const save = async (p: Omit<ResponsePlan, 'id' | 'updated'>) => {
+    if (!editing) return;
+    const { illustrative: _ignored, ...plan } = p;
+    setSaveError(null);
+    try {
+      await savePlan(plan, editing === 'new' ? undefined : editing.id);
+      setNotice(`“${p.title}” ${editing === 'new' ? 'created' : 'updated'}.`);
+      setEditing(null);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'The plan could not be saved.');
+      setEditing(null);
     }
-    setEditing(null);
+  };
+
+  const remove = async (p: ResponsePlan) => {
+    if (!window.confirm(`Delete “${p.title}”? This can’t be undone.`)) return;
+    setSaveError(null);
+    try {
+      await deletePlan(p.id);
+      setNotice(`“${p.title}” deleted.`);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'The plan could not be deleted.');
+    }
   };
 
   return (
@@ -27,7 +42,12 @@ export function LocalResponsePlans() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-2">
         <div>
           <h1 className="text-h1 text-text-primary mb-1">Interventions</h1>
-          <p className="text-body text-text-secondary">Local response plans for {ownHospital.name}: what your team will do, with targets and a review date.</p>
+          <p className="text-body text-text-secondary">Local response plans for {hospital?.name ?? 'your hospital'}: what your team will do, with targets and a review date.</p>
+          {plans.some((p) => p.illustrative) &&
+          <p className="mt-2 flex items-center gap-2 text-[12px] text-text-secondary">
+              <IllustrativeBadge /> Seeded sample plans for the demo.
+            </p>
+          }
         </div>
         <button
           onClick={() => setEditing('new')}
@@ -44,6 +64,11 @@ export function LocalResponsePlans() {
         </div>
       }
 
+      {saveError &&
+      <div role="alert" className="text-[13px] text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">{saveError}</div>
+      }
+
+      <QueryState isLoading={isLoading} error={error}>
       {plans.length === 0 ?
       <p className="bg-surface rounded-xl border border-border p-10 text-center text-[13px] text-text-secondary">No plans yet. Create your first local response plan.</p> :
 
@@ -62,12 +87,21 @@ export function LocalResponsePlans() {
                     {p.disease} · {formatDay(p.startDate)} → review by {formatDay(p.reviewDate)} · updated {formatDay(p.updated)}
                   </p>
                 </div>
-                <button
-              onClick={() => setEditing(p)}
-              className="bg-surface border border-border hover:border-primary/40 text-text-primary px-3 py-2 rounded-lg text-[12px] font-semibold flex items-center transition-colors flex-shrink-0">
-              
-                  <Pencil size={13} className="mr-1.5" /> Edit
-                </button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                onClick={() => setEditing(p)}
+                className="bg-surface border border-border hover:border-primary/40 text-text-primary px-3 py-2 rounded-lg text-[12px] font-semibold flex items-center transition-colors">
+                
+                    <Pencil size={13} className="mr-1.5" /> Edit
+                  </button>
+                  <button
+                onClick={() => remove(p)}
+                aria-label={`Delete ${p.title}`}
+                className="bg-surface border border-border hover:border-danger/40 hover:text-danger text-text-secondary px-2.5 py-2 rounded-lg text-[12px] font-semibold flex items-center transition-colors">
+                
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
               <table className="w-full text-[13px] mt-4">
                 <tbody className="divide-y divide-border border-t border-border">
@@ -84,6 +118,7 @@ export function LocalResponsePlans() {
         )}
         </ul>
       }
+      </QueryState>
 
       {editing && <PlanEditor plan={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSave={save} />}
     </div>);

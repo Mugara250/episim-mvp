@@ -1,8 +1,8 @@
 import React from 'react';
 import { Info } from 'lucide-react';
-import { interventionTypes } from '../../data/interventions';
+import { useScenarioRefs } from '../../api/scenarios';
 import { Scenario } from '../../types/scenarios';
-import { findDataset, findPackage, findPreset, formatPop, pct } from '../../utils/scenarios';
+import { findPackage, findPreset, formatPop, pct } from '../../utils/scenarios';
 
 function Block({ title, children }: {title: string;children: React.ReactNode;}) {
   return (
@@ -24,20 +24,20 @@ function Fact({ label, value }: {label: string;value: string;}) {
 
 /** Read-only review of what the chosen scenario will feed into the model. */
 export function WhatWillRun({ scenario }: {scenario: Scenario;}) {
-  const dataset = findDataset(scenario.datasetId);
-  const preset = findPreset(scenario.presetId);
-  const pkg = findPackage(scenario.packageId);
+  const refs = useScenarioRefs();
+  const preset = findPreset(refs.presets, scenario.presetId);
+  const pkg = findPackage(refs.packages, scenario.packageId);
 
   return (
     <section aria-labelledby="what-will-run" className="rounded-xl border border-border bg-background p-5">
       <h3 id="what-will-run" className="text-[14px] font-semibold text-text-primary mb-4">What will run</h3>
       <div className="divide-y divide-border">
         <Block title="Population">
-          {dataset ?
+          {scenario.datasetName ?
           <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Fact label="Dataset" value={dataset.name} />
-              <Fact label="Version (locked)" value={`v${scenario.datasetVersion ?? dataset.version}`} />
-              <Fact label="Total people" value={formatPop(dataset.population)} />
+              <Fact label="Dataset" value={scenario.datasetName} />
+              <Fact label="Version (locked)" value={`v${scenario.datasetVersion ?? scenario.datasetLatestVersion}`} />
+              <Fact label="Total people" value={scenario.population ? formatPop(scenario.population) : '—'} />
             </dl> :
 
           <p className="text-[13px] text-danger">This scenario’s dataset is no longer available.</p>
@@ -45,12 +45,17 @@ export function WhatWillRun({ scenario }: {scenario: Scenario;}) {
         </Block>
         <Block title="Disease">
           {preset ?
-          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Fact label="Preset" value={preset.name} />
-              <Fact label="R0" value={preset.r0.toFixed(1)} />
-              <Fact label="Incubation" value={`${preset.incubationDays} days`} />
-              <Fact label="Fatality rate" value={pct(preset.mortality)} />
-            </dl> :
+          <>
+              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Fact label="Preset" value={preset.provisional ? `${preset.name} · Provisional` : preset.name} />
+                <Fact label="R0 (likely)" value={preset.r0Likely.toFixed(1)} />
+                <Fact label="Incubation" value={`${preset.incubationDays} days`} />
+                <Fact label="Fatality, admitted" value={pct(preset.cfrHospital)} />
+              </dl>
+              <p className="text-[11px] text-text-secondary mt-2">Reference: {preset.reference}</p>
+            </> :
+          refs.isLoading ?
+          <p className="text-[13px] text-text-secondary">Loading…</p> :
 
           <p className="text-[13px] text-danger">This scenario’s disease preset is no longer available.</p>
           }
@@ -62,10 +67,10 @@ export function WhatWillRun({ scenario }: {scenario: Scenario;}) {
               <ul className="space-y-1.5">
                 {pkg.items.map((item) =>
               <li key={item.id} className="flex items-baseline justify-between gap-3 text-[13px]">
-                    <span className="text-text-primary">{interventionTypes.find((t) => t.id === item.typeId)?.name ?? 'Intervention'}</span>
+                    <span className="text-text-primary">{item.typeName}</span>
                     <span className="text-text-secondary tabular-nums whitespace-nowrap">
                       from day {item.startDay}
-                      {item.endDay === null ? ', ongoing' : ` to ${item.endDay}`} · {Math.round(item.coverage * 100)}% coverage
+                      {item.endDay == null ? ', ongoing' : ` to ${item.endDay}`} · {Math.round(item.coverage * 100)}% coverage
                     </span>
                   </li>
               )}
@@ -79,7 +84,7 @@ export function WhatWillRun({ scenario }: {scenario: Scenario;}) {
           }
         </Block>
       </div>
-      <p className="text-[11px] text-text-secondary mt-4">Values are illustrative placeholders.</p>
+      <p className="text-[11px] text-text-secondary mt-4">Intervention effect sizes are placeholders until an evidence review replaces them.</p>
     </section>);
 
 }

@@ -1,4 +1,4 @@
-import React, { ReactNode, useId, useState } from 'react';
+import { ReactNode, useId, useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 
 interface PresetFieldProps {

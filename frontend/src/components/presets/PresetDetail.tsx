@@ -1,9 +1,8 @@
 import React from 'react';
-import { AlertTriangle, Copy, Eye, Lock, PlayCircle, ShieldCheck, Loader2 } from 'lucide-react';
-import { ROUTE_HELP, ROUTE_LABELS } from '../../data/diseasePresets';
+import { AlertTriangle, BadgeCheck, Copy, Eye, Lock, PlayCircle, ShieldCheck, Loader2 } from 'lucide-react';
 import { DiseasePresetsState } from '../../hooks/useDiseasePresets';
-import { PresetDraft, TransmissionRoute } from '../../types/presets';
-import { asPercent } from '../../utils/presets';
+import { PresetDraft, PresetNumberKey } from '../../types/presets';
+import { PRESET_GROUPS, PresetFieldSpec, asPercent, dateLabel } from '../../utils/presets';
 import { PresetField } from './PresetField';
 
 const inputCls = (error?: string) =>
@@ -25,29 +24,44 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
   const set = (k: keyof PresetDraft) => (ev: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
   s.setDraft({ ...d, [k]: ev.target.value });
 
+  if (s.loading) {
+    return <section className="bg-surface rounded-xl border border-border p-8 text-[13px] text-text-secondary">Loading presets…</section>;
+  }
+  if (s.loadError) {
+    return (
+      <section role="alert" className="bg-danger/10 border border-danger/30 rounded-xl p-8 text-[13px] text-text-primary">
+        Presets couldn’t be loaded. {s.loadError}
+      </section>);
+
+  }
+  if (!p && !s.isNew) {
+    return <section className="bg-surface rounded-xl border border-border p-8 text-[13px] text-text-secondary">Choose a preset from the library.</section>;
+  }
+
   const isBuiltIn = !!p?.builtIn;
   const lockedBuiltIn = isBuiltIn && !s.canEditBuiltIns;
   const title = s.isNew ? d.name.trim() || 'New preset' : p?.name ?? '';
 
-  const numberField = (k: keyof PresetDraft, label: string, unit: string | undefined, help: string, hint?: React.ReactNode, display?: React.ReactNode) =>
-  <PresetField label={label} unit={unit} help={help} error={e[k]} hint={hint} readOnly={ro} display={display ?? d[k]}>
-      {(id, describedBy) =>
-    <input
-      id={id}
-      inputMode="decimal"
-      value={d[k]}
-      onChange={set(k)}
-      aria-invalid={!!e[k]}
-      aria-describedby={describedBy}
-      className={inputCls(e[k])} />
+  const numberField = (f: PresetFieldSpec) => {
+    const k: PresetNumberKey = f.key;
+    const percent = f.kind === 'fraction' ? asPercent(d[k]) : null;
+    const display = percent ? `${d[k]} (${percent})` : d[k];
+    const hint = percent ? `= ${percent}` : f.kind === 'fraction' ? 'Enter as a decimal: 0.5 = 50%' : undefined;
+    return (
+      <PresetField key={k} label={f.label} unit={f.unit} help={f.help} error={e[k]} hint={hint} readOnly={ro} display={display}>
+        {(id, describedBy) =>
+        <input
+          id={id}
+          inputMode="decimal"
+          value={d[k]}
+          onChange={set(k)}
+          aria-invalid={!!e[k]}
+          aria-describedby={describedBy}
+          className={inputCls(e[k])} />
 
-    }
-    </PresetField>;
+        }
+      </PresetField>);
 
-
-  const pct = (k: 'mortality' | 'asymptomatic') => {
-    const v = asPercent(d[k]);
-    return v ? `= ${v}` : undefined;
   };
 
   return (
@@ -65,11 +79,21 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
                 className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                 isBuiltIn ? 'bg-surface-2 text-text-secondary' : 'bg-hover text-primary'}`
                 }>
-                
+
                 {isBuiltIn ? 'Built-in' : 'Custom'}
               </span>
-              {p?.placeholder &&
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning/15 text-warning">Placeholder values</span>
+              {d.provisional &&
+              <span
+                className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning/15 text-warning"
+                title="Not yet reviewed by an epidemiologist for use in EpiSim">
+
+                  Provisional
+                </span>
+              }
+              {p?.illustrative &&
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning/15 text-warning" title="Seeded for the demo">
+                  Illustrative
+                </span>
               }
               {s.dirty &&
               <span className="flex items-center gap-1.5 text-[12px] font-medium text-warning">
@@ -78,9 +102,17 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
               }
             </div>
             <p className="text-[13px] text-text-secondary mt-1.5">
-              {s.isNew ? 'A new custom preset. Fill in the values below, then save.' : p?.description}
-              {p && <span> · Updated {p.updated}</span>}
+              {s.isNew ? 'A new custom preset. Fill in the values below, then save.' : p?.description || p?.virus}
+              {p && <span> · Version {p.version} · Updated {dateLabel(p.updatedAt)}</span>}
             </p>
+            {p &&
+            <p className="text-[12px] mt-1.5 flex items-center gap-1.5 text-text-secondary">
+                <BadgeCheck size={14} className={p.approvedBy ? 'text-success' : 'text-text-secondary'} />
+                {p.approvedBy ?
+              `Values in version ${p.version} approved by ${p.approvedBy} on ${dateLabel(p.approvedOn)}` :
+              'These values have not been approved by an epidemiologist yet'}
+              </p>
+            }
           </div>
 
           <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
@@ -88,8 +120,26 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
             <button
               onClick={onUseInScenario}
               className="px-4 py-2.5 rounded-lg text-[13px] font-semibold flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors whitespace-nowrap">
-              
+
                 <PlayCircle size={15} /> Use in a new scenario
+              </button>
+            }
+            {s.canApprove && p && !s.dirty && !p.approvedBy &&
+            <button
+              onClick={() => s.approve(false)}
+              disabled={s.approving}
+              className="px-4 py-2.5 rounded-lg border border-border text-[13px] font-semibold flex items-center gap-2 text-text-primary hover:border-primary/40 whitespace-nowrap transition-colors disabled:opacity-50">
+
+                <BadgeCheck size={15} /> Approve values
+              </button>
+            }
+            {s.canApprove && p && !s.dirty && p.provisional &&
+            <button
+              onClick={() => s.approve(true)}
+              disabled={s.approving}
+              className="px-4 py-2.5 rounded-lg border border-border text-[13px] font-semibold flex items-center gap-2 text-text-primary hover:border-primary/40 whitespace-nowrap transition-colors disabled:opacity-50">
+
+                Approve and clear “Provisional”
               </button>
             }
             {s.canCreate && p && (lockedBuiltIn || !s.dirty) &&
@@ -100,7 +150,7 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
               'bg-primary hover:bg-primary-dark text-white' :
               'border border-border text-text-primary hover:border-primary/40'}`
               }>
-              
+
                 <Copy size={15} /> Clone as custom
               </button>
             }
@@ -110,14 +160,14 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
                 onClick={s.discard}
                 disabled={s.saving}
                 className="px-4 py-2.5 rounded-lg border border-border text-[13px] font-semibold text-text-primary hover:border-primary/40 transition-colors disabled:opacity-50">
-                
+
                   Discard
                 </button>
                 <button
                 onClick={s.save}
                 disabled={s.saving}
                 className="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-[13px] font-semibold flex items-center gap-2 whitespace-nowrap transition-colors disabled:opacity-70 disabled:cursor-wait">
-                
+
                   {s.saving && <Loader2 size={14} className="animate-spin" />}
                   {s.saving ? 'Saving…' : s.isNew ? 'Create preset' : 'Save changes'}
                 </button>
@@ -129,7 +179,7 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
         {lockedBuiltIn &&
         <p className="mt-4 flex items-start gap-2 text-[13px] text-text-secondary">
             <ShieldCheck size={15} className="text-primary mt-0.5 flex-shrink-0" />
-            Built-in presets are validated reference values and can’t be edited.
+            Built-in presets are read-only so scenarios that use them stay stable.
             {s.canCreate && ' Clone it to make an editable copy.'}
           </p>
         }
@@ -142,21 +192,20 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
         {!s.canCreate &&
         <p className="mt-4 flex items-start gap-2 text-[13px] text-text-secondary">
             <Eye size={15} className="mt-0.5 flex-shrink-0" />
-            You can view presets. Only Epidemiologists and Administrators can create or edit them.
+            You can view presets. Only Epidemiologists can create, edit or approve them.
           </p>
         }
       </div>
 
-      {/* Form */}
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+      {/* Identity and evidence */}
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 border-b border-border">
         <PresetField
           label="Name"
           help="A short name others will recognise when they pick a preset for a scenario."
           error={e.name}
           readOnly={ro}
-          display={d.name}
-          wide>
-          
+          display={d.name}>
+
           {(id, describedBy) =>
           <input
             id={id}
@@ -170,75 +219,96 @@ export function PresetDetail({ s, canStartScenario, onUseInScenario }: PresetDet
           }
         </PresetField>
 
-        {numberField('r0', 'R0, basic reproduction number', undefined, 'The average number of people one infected person passes the disease to, when nobody is immune and no measures are in place.', 'Usually between 1 and 5 for these diseases.')}
-
         <PresetField
-          label="Transmission route"
-          help="The main way the disease spreads from person to person."
-          readOnly={ro}
-          display={ROUTE_LABELS[d.route]}
-          hint={ROUTE_HELP[d.route]}>
-          
+          label="Disease"
+          help="The disease family. Scenarios and Rt tracking group presets by it. Set when the preset is created."
+          error={e.disease}
+          readOnly={ro || !s.isNew}
+          display={[d.disease, d.virus].filter(Boolean).join(' · ') || '—'}>
+
           {(id, describedBy) =>
-          <select id={id} value={d.route} onChange={set('route')} aria-describedby={describedBy} className={inputCls()}>
-              {(Object.keys(ROUTE_LABELS) as TransmissionRoute[]).map((r) =>
-            <option key={r} value={r}>
-                  {ROUTE_LABELS[r]}
-                </option>
-            )}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+              <input
+              id={id}
+              value={d.disease}
+              onChange={set('disease')}
+              placeholder="e.g. ebola"
+              aria-invalid={!!e.disease}
+              aria-describedby={describedBy}
+              className={inputCls(e.disease).replace(' tabular-nums', '')} />
+
+              <input
+              aria-label="Virus"
+              value={d.virus}
+              onChange={set('virus')}
+              placeholder="Virus, e.g. Zaire ebolavirus"
+              className={inputCls().replace(' tabular-nums', '')} />
+
+            </div>
           }
         </PresetField>
 
-        {numberField('incubationDays', 'Incubation period', 'days', 'Days between catching the disease and the first symptoms.', 'Decimals allowed, e.g. 8.5')}
-        {numberField('infectiousDays', 'Infectious period', 'days', 'Days a sick person can pass the disease on to others.', 'Decimals allowed, e.g. 10')}
-
-        {numberField(
-          'mortality',
-          'Mortality rate',
-          '0 to 1',
-          'The share of people with the disease who die from it. 0.5 means half of them.',
-          pct('mortality') ?? 'Enter as a decimal: 0.5 = 50%',
-          `${d.mortality} (${asPercent(d.mortality)})`
-        )}
-        {numberField(
-          'asymptomatic',
-          'Asymptomatic fraction',
-          '0 to 1',
-          'The share of infected people who never feel sick. They can still matter for spread.',
-          pct('asymptomatic') ?? 'Enter as a decimal: 0.1 = 10%',
-          `${d.asymptomatic} (${asPercent(d.asymptomatic)})`
-        )}
-
         <PresetField
-          label="Source / citation"
-          help="The study or report these values come from, so anyone can check the evidence."
+          label="Reference"
+          help="The studies or reports these values come from, so anyone can check the evidence."
           readOnly={ro}
-          display={<span className="whitespace-pre-wrap text-[13px]">{d.source || 'No source given'}</span>}
+          display={<span className="whitespace-pre-wrap text-[13px]">{d.reference || 'No reference given'}</span>}
           hint={
-          d.source.trim() ?
+          d.reference.trim() ?
           'Cite where these values come from, especially if borrowed from another outbreak.' :
-          <span className="text-warning">No source yet. Cite where these values come from, especially if borrowed from another outbreak.</span>
+          <span className="text-warning">No reference yet. Cite where these values come from.</span>
           }
           wide>
-          
+
           {(id, describedBy) =>
           <textarea
             id={id}
-            rows={4}
-            value={d.source}
-            onChange={set('source')}
+            rows={3}
+            value={d.reference}
+            onChange={set('reference')}
             aria-describedby={describedBy}
             placeholder="e.g. WHO Ebola Response Team (2014). Ebola virus disease in West Africa. NEJM 371:1481–95."
             className={`${inputCls()} resize-y text-[13px]`} />
 
           }
         </PresetField>
+
+        <PresetField
+          label="Provisional"
+          help="Provisional means the values have not been reviewed by an epidemiologist for use in EpiSim. Results based on them are labelled."
+          readOnly={ro}
+          display={d.provisional ? 'Yes, values not yet reviewed' : 'No'}
+          wide>
+
+          {(id) =>
+          <label htmlFor={id} className="flex items-center gap-2 text-[13px] text-text-primary">
+              <input
+              id={id}
+              type="checkbox"
+              checked={d.provisional}
+              onChange={(ev) => s.setDraft({ ...d, provisional: ev.target.checked })}
+              className="w-4 h-4 accent-primary" />
+
+              Mark these values as provisional (unreviewed)
+            </label>
+          }
+        </PresetField>
       </div>
 
-      {p?.placeholder &&
-      <p className="px-6 pb-6 -mt-1 text-[12px] text-text-secondary">
-          These values are illustrative placeholders for design review. Replace them with sourced values before using results for decisions.
+      {/* SEIHFR parameters */}
+      {PRESET_GROUPS.map((g) =>
+      <div key={g.title} className="p-6 border-b border-border last:border-b-0">
+          <h3 className="text-h3 text-text-primary">{g.title}</h3>
+          <p className="text-[13px] text-text-secondary mt-1 mb-5">{g.intro}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-6">{g.fields.map(numberField)}</div>
+          {g.title === 'Transmission' && e.r0Range && <p className="text-[12px] text-danger mt-3">{e.r0Range}</p>}
+          {g.title === 'Transmission routes' && e.routeShares && <p className="text-[12px] text-danger mt-3">{e.routeShares}</p>}
+        </div>
+      )}
+
+      {d.provisional &&
+      <p className="px-6 pb-6 pt-4 text-[12px] text-text-secondary">
+          Provisional values have not been reviewed by an epidemiologist. Results built on them are scenario estimates, not forecasts.
         </p>
       }
     </section>);

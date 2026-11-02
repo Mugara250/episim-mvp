@@ -1,4 +1,3 @@
-import React from 'react';
 import { CalendarRange, Eye, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { InterventionPackagesState } from '../../hooks/useInterventionPackages';
 import { InterventionType } from '../../types/interventions';

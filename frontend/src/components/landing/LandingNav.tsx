@@ -1,4 +1,3 @@
-import React from 'react';
 import { Activity, ArrowRight } from 'lucide-react';
 import { navLinks } from '../../data/landing';
 

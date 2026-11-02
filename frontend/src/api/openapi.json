@@ -5900,6 +5900,10 @@
       "type": "string",
       "title": "Id"
      },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
      "email": {
       "type": "string",
       "title": "Email"
@@ -5912,6 +5916,29 @@
       "type": "string",
       "format": "date-time",
       "title": "Submittedat"
+     },
+     "decidedAt": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decidedat"
+     },
+     "assignedRole": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assignedrole"
      },
      "rejectionReason": {
       "anyOf": [
@@ -5928,6 +5955,7 @@
     "type": "object",
     "required": [
      "id",
+     "name",
      "email",
      "status",
      "submittedAt"

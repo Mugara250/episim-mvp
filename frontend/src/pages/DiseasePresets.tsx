@@ -1,4 +1,3 @@
-import React from 'react';
 import { ViewOnlyBadge } from '../components/analyst/Badges';
 import { PresetDetail } from '../components/presets/PresetDetail';
 import { PresetLibrary } from '../components/presets/PresetLibrary';

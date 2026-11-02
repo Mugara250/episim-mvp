@@ -1,4 +1,3 @@
-import React from 'react';
 import { workflowSteps } from '../../data/landing';
 
 export function WorkflowSteps() {

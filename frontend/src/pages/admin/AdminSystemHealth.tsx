@@ -1,4 +1,3 @@
-import React, { memo } from 'react';
 import {
   Server,
   Database,
@@ -19,105 +18,104 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer } from
 'recharts';
+import { useSystemHealth } from '../../api/admin';
+import { DemoDataBadge, QueryState } from '../../components/officer/DataState';
+
+const GB = 1024 ** 3;
+const fmtBytes = (b: number | null | undefined) =>
+b == null ? '—' : b >= GB ? `${(b / GB).toFixed(1)} GB` : `${(b / 1024 ** 2).toFixed(1)} MB`;
+
+// Sample curves for the charts below. There is no request-timing or session telemetry in the MVP,
+// so these are labelled "Demo data". Generated once so they don't jump on every refresh.
+const chartData = Array.from({ length: 24 }).map((_, i) => ({
+  time: `${i}:00`,
+  api: 30 + (i * 7 % 20) + (i === 14 ? 80 : 0),
+  sessions: 10 + (i * 5 % 15)
+}));
+
+type ServiceStatus = 'Operational' | 'Degraded' | 'Down' | 'Not configured';
+
 export function AdminSystemHealth() {
-  const services = [
-  {
-    name: 'Web Server',
-    icon: Server,
-    status: 'Operational',
-    uptime: '99.9%',
-    last: 'Just now'
-  },
+  const healthQ = useSystemHealth();
+  const h = healthQ.data;
+  const checked = h ? new Date(h.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+  const diskUsed = h ? 1 - h.disk.freeBytes / h.disk.totalBytes : 0;
+  const services: {name: string;icon: typeof Server;status: ServiceStatus;detail: string;}[] = h ?
+  [
+  { name: 'API server', icon: Server, status: 'Operational', detail: `EpiSim ${h.appVersion}` },
   {
     name: 'Database',
     icon: Database,
-    status: 'Operational',
-    uptime: '99.9%',
-    last: 'Just now'
+    status: h.database.ok ? 'Operational' : 'Down',
+    detail: `${h.database.driver} · ${fmtBytes(h.database.sizeBytes)}`
   },
   {
-    name: 'Simulation Engine',
+    name: 'Simulation engine',
     icon: Cpu,
-    status: 'Degraded',
-    uptime: '98.5%',
-    last: '2m ago'
+    status: h.runs.running + h.runs.queued > h.worker.threads * 4 ? 'Degraded' : 'Operational',
+    detail: `${h.engineVersion} · ${h.worker.threads} worker threads · ${h.worker.queueDepth} waiting`
   },
   {
-    name: 'File Storage',
+    name: 'File storage',
     icon: HardDrive,
-    status: 'Operational',
-    uptime: '100%',
-    last: 'Just now'
+    status: diskUsed > 0.95 ? 'Degraded' : 'Operational',
+    detail: `${fmtBytes(h.disk.freeBytes)} free of ${fmtBytes(h.disk.totalBytes)}`
   },
-  {
-    name: 'Email Service',
-    icon: Mail,
-    status: 'Operational',
-    uptime: '99.9%',
-    last: '5m ago'
-  },
-  {
-    name: 'Auth Service',
-    icon: Shield,
-    status: 'Operational',
-    uptime: '100%',
-    last: 'Just now'
-  }];
+  { name: 'Email service', icon: Mail, status: 'Not configured', detail: 'No email is sent in the MVP' },
+  { name: 'Auth service', icon: Shield, status: 'Operational', detail: `JWT sessions · ${h.users.active} active accounts` }] :
 
-  const chartData = Array.from({
-    length: 24
-  }).map((_, i) => ({
-    time: `${i}:00`,
-    api: 30 + Math.random() * 20 + (i === 14 ? 80 : 0),
-    sessions: 10 + Math.random() * 15
-  }));
+  [];
+  const down = services.filter((s) => s.status === 'Down' || s.status === 'Degraded');
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-text-primary">
           System Health & Monitoring
         </h1>
+        <button
+          onClick={() => healthQ.refetch()}
+          className="text-[12px] font-medium text-text-secondary hover:text-primary flex items-center transition-colors">
+          
+          <RefreshCw size={13} className={`mr-1.5 ${healthQ.isFetching ? 'animate-spin' : ''}`} /> Checked {checked}
+        </button>
       </div>
 
+      <QueryState isLoading={healthQ.isLoading} error={healthQ.error}>
       {/* Overall Status Banner */}
-      <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center">
-        <div className="w-3 h-3 rounded-full bg-primary mr-3 animate-pulse"></div>
-        <span className="text-[15px] font-semibold text-primary">
-          All Core Systems Operational
+      <div className={`${down.length ? 'bg-warning/10 border-warning/30' : 'bg-primary/10 border-primary/20'} border rounded-xl p-4 flex items-center`}>
+        <div className={`w-3 h-3 rounded-full ${down.length ? 'bg-warning' : 'bg-primary'} mr-3 animate-pulse`}></div>
+        <span className={`text-[15px] font-semibold ${down.length ? 'text-warning' : 'text-primary'}`}>
+          {down.length ? `${down.map((d) => d.name).join(', ')} need${down.length === 1 ? 's' : ''} attention` : 'All Core Systems Operational'}
         </span>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs (all measured by the server) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-surface p-5 rounded-xl border border-border shadow-sm">
           <p className="text-[12px] font-medium text-text-secondary uppercase tracking-wider mb-1">
-            API Response Time
+            Simulation runs
           </p>
           <div className="flex items-end gap-2">
-            <p className="text-2xl font-bold text-text-primary">
-              42
-              <span className="text-[14px] text-text-secondary font-normal">
-                ms
-              </span>
-            </p>
-            <span className="text-[11px] font-medium text-primary mb-1">
-              avg
+            <p className="text-2xl font-bold text-text-primary">{h?.runs.completed ?? 0}</p>
+            <span className="text-[11px] font-medium text-text-secondary mb-1">
+              completed · {h?.runs.failed ?? 0} failed · {(h?.runs.running ?? 0) + (h?.runs.queued ?? 0)} active
             </span>
           </div>
         </div>
         <div className="bg-surface p-5 rounded-xl border border-border shadow-sm">
           <p className="text-[12px] font-medium text-text-secondary uppercase tracking-wider mb-1">
-            DB Query Time
+            Run time (last 20)
           </p>
           <div className="flex items-end gap-2">
             <p className="text-2xl font-bold text-text-primary">
-              18
+              {h?.recentRunSeconds.mean != null ? h.recentRunSeconds.mean.toFixed(1) : '—'}
               <span className="text-[14px] text-text-secondary font-normal">
-                ms
+                s
               </span>
             </p>
             <span className="text-[11px] font-medium text-primary mb-1">
-              avg
+              avg{h?.recentRunSeconds.max != null ? ` · max ${h.recentRunSeconds.max.toFixed(1)}s` : ''}
             </span>
           </div>
         </div>
@@ -127,22 +125,25 @@ export function AdminSystemHealth() {
           </p>
           <div className="flex items-end gap-2">
             <p className="text-2xl font-bold text-text-primary">
-              67
+              {Math.round(diskUsed * 100)}
               <span className="text-[14px] text-text-secondary font-normal">
                 %
               </span>
             </p>
             <span className="text-[11px] font-medium text-text-secondary mb-1">
-              of 1TB
+              of {fmtBytes(h?.disk.totalBytes)}
             </span>
           </div>
         </div>
         <div className="bg-surface p-5 rounded-xl border border-border shadow-sm">
           <p className="text-[12px] font-medium text-text-secondary uppercase tracking-wider mb-1">
-            Active Sessions
+            Active accounts
           </p>
           <div className="flex items-end gap-2">
-            <p className="text-2xl font-bold text-text-primary">23</p>
+            <p className="text-2xl font-bold text-text-primary">{h?.users.active ?? 0}</p>
+            <span className="text-[11px] font-medium text-text-secondary mb-1">
+              {Object.entries(h?.reports ?? {}).map(([k, v]) => `${v} ${k.replace('_', ' ')}`).join(' · ') || 'no reports'}
+            </span>
           </div>
         </div>
       </div>
@@ -165,36 +166,25 @@ export function AdminSystemHealth() {
                 </h3>
               </div>
               <span
-              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${svc.status === 'Operational' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-hover text-text-secondary border border-border'}`}>
+              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${svc.status === 'Operational' ? 'bg-primary/10 text-primary border border-primary/20' : svc.status === 'Down' ? 'bg-danger/10 text-danger border border-danger/20' : 'bg-hover text-text-secondary border border-border'}`}>
               
                 {svc.status}
               </span>
             </div>
-            <div className="flex justify-between items-end mt-auto pt-4 border-t border-border">
-              <div>
-                <p className="text-[11px] text-text-secondary">
-                  Uptime:{' '}
-                  <span className="font-medium text-text-primary">
-                    {svc.uptime}
-                  </span>
-                </p>
-                <p className="text-[11px] text-text-secondary">
-                  Checked: {svc.last}
-                </p>
-              </div>
-              <button className="text-[11px] font-medium text-text-secondary hover:text-primary flex items-center transition-colors">
-                <RefreshCw size={12} className="mr-1" /> Restart
-              </button>
+            <div className="mt-auto pt-4 border-t border-border">
+              <p className="text-[11px] text-text-secondary">{svc.detail}</p>
+              <p className="text-[11px] text-text-secondary">Checked: {checked}</p>
             </div>
           </div>
         )}
       </div>
+      </QueryState>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-surface rounded-xl border border-border shadow-sm p-5">
-          <h3 className="text-[14px] font-semibold text-text-primary mb-4">
-            API Response Time (24h)
+          <h3 className="text-[14px] font-semibold text-text-primary mb-4 flex items-center justify-between gap-2">
+            API Response Time (24h) <DemoDataBadge title="No request-timing telemetry in the MVP; sample curve" />
           </h3>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -242,8 +232,8 @@ export function AdminSystemHealth() {
           </div>
         </div>
         <div className="bg-surface rounded-xl border border-border shadow-sm p-5">
-          <h3 className="text-[14px] font-semibold text-text-primary mb-4">
-            Active Sessions (24h)
+          <h3 className="text-[14px] font-semibold text-text-primary mb-4 flex items-center justify-between gap-2">
+            Active Sessions (24h) <DemoDataBadge title="No session telemetry in the MVP; sample curve" />
           </h3>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -296,8 +286,8 @@ export function AdminSystemHealth() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-sidebar-bg rounded-xl border border-white/10 shadow-sm overflow-hidden flex flex-col">
           <div className="px-5 py-3 border-b border-white/10 flex justify-between items-center bg-sidebar-bg">
-            <h3 className="text-[14px] font-semibold text-white">
-              System Logs
+            <h3 className="text-[14px] font-semibold text-white flex items-center gap-2">
+              System Logs <DemoDataBadge title="Sample log lines; server logs go to the console in the MVP" />
             </h3>
             <div className="flex gap-3">
               <select className="bg-white/5 border border-white/10 text-dark-text-secondary text-[11px] rounded px-2 py-1 outline-none">
@@ -362,9 +352,10 @@ export function AdminSystemHealth() {
         <div className="bg-surface rounded-xl border border-border shadow-sm p-5 flex flex-col">
           <div className="flex items-center mb-4">
             <AlertTriangle size={18} className="text-text-secondary mr-2" />
-            <h3 className="text-[14px] font-semibold text-text-primary">
+            <h3 className="text-[14px] font-semibold text-text-primary flex-1">
               Maintenance Mode
             </h3>
+            <DemoDataBadge title="Not implemented in the MVP; the button does nothing" />
           </div>
           <p className="text-[12px] text-text-secondary mb-4">
             Enable maintenance mode to lock out non-admin users during system
@@ -393,7 +384,7 @@ export function AdminSystemHealth() {
             </div>
           </div>
 
-          <button className="w-full bg-hover hover:bg-background text-text-primary font-medium py-2 rounded-lg text-[13px] transition-colors border border-border">
+          <button disabled title="Not available in the MVP" className="w-full bg-hover text-text-secondary font-medium py-2 rounded-lg text-[13px] border border-border cursor-not-allowed opacity-70">
             Enable Maintenance Mode
           </button>
         </div>

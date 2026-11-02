@@ -1,9 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { AlertCircle, Download, FileSpreadsheet, Loader2, Trash2, UploadCloud, Clock } from 'lucide-react';
-import { BACKGROUND_THRESHOLD_BYTES, TEMPLATE_HEADERS, TEMPLATE_ROWS } from '../../data/populationImport';
 import { PopulationImportState } from '../../hooks/usePopulationImport';
 import { downloadCsv } from '../../utils/csv';
-import { formatBytes, formatCount } from '../../utils/populationImport';
+import { MAX_FILE_BYTES, TEMPLATE_HEADERS, TEMPLATE_ROWS, formatBytes, formatCount } from '../../utils/populationImport';
 
 export function UploadStep({ s, readOnly }: {s: PopulationImportState;readOnly: boolean;}) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,10 +64,16 @@ export function UploadStep({ s, readOnly }: {s: PopulationImportState;readOnly: 
               </div>
             </div>
 
-            {s.file.sizeBytes > BACKGROUND_THRESHOLD_BYTES &&
+            {s.file.isSample &&
+          <p className="mt-5 flex items-start gap-2 text-[13px] text-text-secondary">
+                <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[11px] font-semibold flex-shrink-0">Illustrative</span>
+                District totals approximate the 2022 census; the age split is invented. Two rows are deliberately wrong so you can see the checks.
+              </p>
+          }
+            {!s.file.fullyRead &&
           <p className="mt-5 flex items-start gap-2 text-[13px] text-text-secondary">
                 <Clock size={15} className="text-primary mt-0.5 flex-shrink-0" />
-                This is a large file, so the import will run in the background. You can keep working while it finishes.
+                This is a large file. The preview shows the first rows; every row is checked on the server in the next step.
               </p>
           }
           </section> :
@@ -119,7 +124,7 @@ export function UploadStep({ s, readOnly }: {s: PopulationImportState;readOnly: 
             
                 {!readOnly &&
             <button onClick={s.loadSample} className="mt-6 text-[13px] text-text-secondary hover:text-primary transition-colors">
-                    No file to hand? <span className="font-semibold text-primary">Try the RPHC5 2022 10% sample</span>
+                    No file to hand? <span className="font-semibold text-primary">Try an illustrative sample file</span>
                   </button>
             }
               </>
@@ -143,11 +148,11 @@ export function UploadStep({ s, readOnly }: {s: PopulationImportState;readOnly: 
           </div>
           <div>
             <dt className="text-text-secondary">Maximum size</dt>
-            <dd className="text-text-primary mt-0.5">2 GB</dd>
+            <dd className="text-text-primary mt-0.5">{formatBytes(MAX_FILE_BYTES)} in this demo</dd>
           </div>
           <div>
-            <dt className="text-text-secondary">Large files</dt>
-            <dd className="text-text-primary mt-0.5">Files over 50 MB import in the background, so you can leave the page</dd>
+            <dt className="text-text-secondary">Background import</dt>
+            <dd className="text-text-primary mt-0.5">Every import runs in the background, so you can leave the page</dd>
           </div>
         </dl>
         <button

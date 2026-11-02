@@ -45,13 +45,13 @@ const DEMO_USERS: Record<
   }
 };
 export function Login({ onNavigate }: LoginProps) {
-  const { login, demoLogin, setUserName } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   // Deep link the user tried to open before signing in (e.g. a shared comparison).
   const from = (useLocation().state as {from?: string;} | null)?.from;
   const toMfa = () => navigate('/mfa', { state: from ? { from } : undefined });
   const [submitting, setSubmitting] = useState(false);
-  const { myRequest, findByEmail } = useAccountRequests();
+  const { myRequest, lookupRequest } = useAccountRequests();
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoCreds, setShowDemoCreds] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,29 +82,15 @@ export function Login({ onNavigate }: LoginProps) {
       toMfa();
       return;
     } catch (e) {
-      // Fall through to the access-request checks below before showing the server's message.
-      const request = findByEmail(emailKey);
+      // Before showing the server's message, check whether this email has an account request.
+      // Approved requests already have a real account, so they never reach this point with the right password.
+      const request = await lookupRequest(emailKey).catch(() => undefined);
       if (request?.status === 'Pending') {
         setError('Your account request is still awaiting administrator approval. You’ll be notified once it’s approved.');
         return;
       }
       if (request?.status === 'Rejected') {
         setError(`Your account request was declined: ${request.rejectionReason ?? 'details could not be verified.'}`);
-        return;
-      }
-      if (request?.status === 'Approved' && request.assignedRole) {
-        if (request.password !== formData.password) {
-          setError('Incorrect password for this account.');
-          return;
-        }
-        // Accounts approved in this browser session sign in as the demo user for their assigned role.
-        try {
-          await demoLogin(request.assignedRole);
-          setUserName(request.name);
-          toMfa();
-        } catch (err) {
-          setError(err instanceof ApiError ? err.message : 'Could not sign in. Check that the EpiSim server is running.');
-        }
         return;
       }
       if (e instanceof ApiError && (e.status === 401 || e.status === 400 || e.status === 404)) {

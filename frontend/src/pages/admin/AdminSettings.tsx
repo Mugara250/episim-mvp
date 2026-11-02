@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAdminSettings, useSaveSetting } from '../../api/admin';
+import { DemoDataBadge, QueryState } from '../../components/officer/DataState';
 import {
   Save,
   Shield,
@@ -7,8 +9,45 @@ import {
   Link as LinkIcon,
   Settings as SettingsIcon } from
 'lucide-react';
+interface GeneralSettings {
+  systemName: string;
+  language: string;
+  timezone: string;
+  dateFormat: string;
+}
+
+const GENERAL_DEFAULTS: GeneralSettings = {
+  systemName: 'EpiSim Simulation System',
+  language: 'English (US)',
+  timezone: 'Africa/Kigali (CAT)',
+  dateFormat: 'YYYY-MM-DD'
+};
+
 export function AdminSettings() {
   const [activeTab, setActiveTab] = useState('General');
+  // Only the General tab is stored by the server (settings key "general"); the session timeout
+  // and other runtime values come from environment variables and are shown read-only.
+  const settingsQ = useAdminSettings();
+  const saveM = useSaveSetting();
+  const [general, setGeneral] = useState<GeneralSettings>(GENERAL_DEFAULTS);
+  const [notice, setNotice] = useState<{tone: 'success' | 'error';text: string;} | null>(null);
+  const stored = settingsQ.data?.stored.general as Partial<GeneralSettings> | undefined;
+  const runtime = settingsQ.data?.runtime;
+  useEffect(() => {
+    if (stored) setGeneral({ ...GENERAL_DEFAULTS, ...stored });
+  }, [settingsQ.data]);
+  const setField = (k: keyof GeneralSettings) => (e: {target: {value: string;};}) =>
+  setGeneral((g) => ({ ...g, [k]: e.target.value }));
+
+  const saveAll = async () => {
+    setNotice(null);
+    try {
+      await saveM.mutateAsync({ key: 'general', value: { ...general } });
+      setNotice({ tone: 'success', text: 'General settings saved. The change is recorded in the audit log.' });
+    } catch (e) {
+      setNotice({ tone: 'error', text: e instanceof Error ? e.message : 'Settings could not be saved.' });
+    }
+  };
   const tabs = [
   {
     id: 'General',
@@ -37,10 +76,21 @@ export function AdminSettings() {
         <h1 className="text-2xl font-bold text-text-primary">
           System Settings
         </h1>
-        <button className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-medium flex items-center transition-colors">
-          <Save size={16} className="mr-2" /> Save All Changes
+        <button
+          onClick={saveAll}
+          disabled={saveM.isPending || settingsQ.isLoading}
+          className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-[13px] font-medium flex items-center transition-colors disabled:opacity-60">
+          <Save size={16} className="mr-2" /> Save General Settings
         </button>
       </div>
+
+      {notice &&
+      <div
+        role={notice.tone === 'error' ? 'alert' : 'status'}
+        className={`text-[13px] rounded-xl px-4 py-3 border ${notice.tone === 'error' ? 'text-danger bg-danger/10 border-danger/20' : 'text-success bg-success/10 border-success/20'}`}>
+          {notice.text}
+        </div>
+      }
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Left Nav */}
@@ -67,6 +117,7 @@ export function AdminSettings() {
               <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3">
                 General Configuration
               </h2>
+              <QueryState isLoading={settingsQ.isLoading} error={settingsQ.error}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-[13px] font-medium text-text-secondary mb-1">
@@ -74,7 +125,8 @@ export function AdminSettings() {
                   </label>
                   <input
                   type="text"
-                  defaultValue="EpiSim Simulation System"
+                  value={general.systemName}
+                  onChange={setField('systemName')}
                   className="w-full border border-border bg-background rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-primary" />
                 
                 </div>
@@ -82,7 +134,7 @@ export function AdminSettings() {
                   <label className="block text-[13px] font-medium text-text-secondary mb-1">
                     Default Language
                   </label>
-                  <select className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
+                  <select value={general.language} onChange={setField('language')} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
                     <option>English (US)</option>
                     <option>French</option>
                     <option>Kinyarwanda</option>
@@ -92,7 +144,7 @@ export function AdminSettings() {
                   <label className="block text-[13px] font-medium text-text-secondary mb-1">
                     System Timezone
                   </label>
-                  <select className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
+                  <select value={general.timezone} onChange={setField('timezone')} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
                     <option>Africa/Kigali (CAT)</option>
                     <option>UTC</option>
                   </select>
@@ -101,7 +153,7 @@ export function AdminSettings() {
                   <label className="block text-[13px] font-medium text-text-secondary mb-1">
                     Date Format
                   </label>
-                  <select className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
+                  <select value={general.dateFormat} onChange={setField('dateFormat')} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary">
                     <option>YYYY-MM-DD</option>
                     <option>DD/MM/YYYY</option>
                     <option>MM/DD/YYYY</option>
@@ -109,22 +161,38 @@ export function AdminSettings() {
                 </div>
                 <div>
                   <label className="block text-[13px] font-medium text-text-secondary mb-1">
-                    Session Timeout (minutes)
+                    Session length (minutes, set by JWT_EXPIRE_MINUTES)
                   </label>
                   <input
                   type="number"
-                  defaultValue="30"
-                  className="w-full border border-border bg-background rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-primary" />
+                  value={runtime?.jwtExpireMinutes ?? ''}
+                  readOnly
+                  disabled
+                  className="w-full border border-border bg-background rounded-lg px-3 py-2 text-[13px] text-text-secondary cursor-not-allowed" />
                 
                 </div>
               </div>
+              {runtime &&
+            <div className="rounded-lg border border-border bg-background p-4">
+                  <h3 className="text-[13px] font-semibold text-text-primary mb-2">Server runtime (read-only)</h3>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-[12px]">
+                    <div className="flex justify-between"><dt className="text-text-secondary">Demo mode</dt><dd className="font-medium text-text-primary">{runtime.demoMode ? 'On' : 'Off'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-text-secondary">Simulation worker threads</dt><dd className="font-medium text-text-primary">{runtime.workerThreads}</dd></div>
+                    <div className="flex justify-between"><dt className="text-text-secondary">Report approver must differ from author</dt><dd className="font-medium text-text-primary">{runtime.requireDistinctApprover ? 'Yes' : 'No'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-text-secondary">What-if preview runs</dt><dd className="font-medium text-text-primary">{runtime.whatIfRuns}</dd></div>
+                  </dl>
+                  <p className="text-[11px] text-text-secondary mt-2">{settingsQ.data?.note}</p>
+                </div>
+            }
+              </QueryState>
             </div>
           }
 
           {activeTab === 'Security' &&
           <div className="space-y-6">
-              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3">
+              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3 flex items-center justify-between gap-3">
                 Password & Authentication Policy
+                <DemoDataBadge title="Not stored by the server in the MVP; these controls do nothing" />
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -225,8 +293,9 @@ export function AdminSettings() {
 
           {activeTab === 'Email & Notifications' &&
           <div className="space-y-6">
-              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3">
+              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3 flex items-center justify-between gap-3">
                 SMTP Configuration
+                <DemoDataBadge title="Not stored by the server in the MVP; these controls do nothing" />
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -328,8 +397,9 @@ export function AdminSettings() {
 
           {activeTab === 'Data & Storage' &&
           <div className="space-y-6">
-              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3">
+              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3 flex items-center justify-between gap-3">
                 Storage Usage
+                <DemoDataBadge title="Not stored by the server in the MVP; these controls do nothing" />
               </h2>
               <div>
                 <div className="flex justify-between text-[13px] mb-1">
@@ -411,8 +481,9 @@ export function AdminSettings() {
 
           {activeTab === 'Integration' &&
           <div className="space-y-6">
-              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3">
+              <h2 className="text-[16px] font-semibold text-text-primary border-b border-border pb-3 flex items-center justify-between gap-3">
                 External Integrations
+                <DemoDataBadge title="Not stored by the server in the MVP; these controls do nothing" />
               </h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border border-border rounded-lg">

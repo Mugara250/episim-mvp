@@ -8,10 +8,16 @@ export interface AdminUser {
   email: string;
   role: Role;
   organisation: string;
+  /** Institution the account belongs to (for officers, their hospital). */
+  institutionId?: string;
   /** Required when role is 'officer'. */
   hospitalId?: string;
   status: AccountStatus;
   lastLogin: string;
+  /** One of the seeded demo accounts. */
+  isDemo?: boolean;
+  canEditBuiltins?: boolean;
+  illustrative?: boolean;
 }
 
 export interface Hospital {
@@ -20,6 +26,8 @@ export interface Hospital {
   district: string;
   isolationBeds: number;
   registered: string;
+  kind?: 'District hospital catchment' | 'Referral hospital';
+  illustrative?: boolean;
 }
 
 export type AuditAction =
@@ -42,7 +50,8 @@ export interface AuditEntry {
   time: string;
   user: string;
   role: string;
-  action: AuditAction;
+  action: AuditAction | string;
   target: string;
   details: string;
+  illustrative?: boolean;
 }

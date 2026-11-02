@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   ComposedChart,
   Area,
@@ -10,7 +9,7 @@ import {
   ReferenceLine,
   ResponsiveContainer } from
 'recharts';
-import { Band } from '../../lib/models/stats';
+import { Band } from '../../types/simulationRuns';
 import { CHART } from './chartTheme';
 
 export interface FanSeries {

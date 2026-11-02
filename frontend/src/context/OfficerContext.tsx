@@ -1,33 +1,48 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { hospitalEntries } from '../data/hospitalEntries';
-import { instructions as initialInstructions } from '../data/instructions';
-import { responsePlans } from '../data/responsePlans';
-import { HospitalEntry, Instruction, ResponsePlan } from '../types/officer';
+import { ReactNode } from 'react';
+import {
+  EntryCounts,
+  PlanInput,
+  useDeletePlan,
+  useHospitalEntries,
+  useInstructions,
+  useOwnHospital,
+  usePlans,
+  useSaveEntry,
+  useSavePlan,
+  useSetInstructionStatus } from
+'../api/officer';
+import { InstructionStatus, OfficerDisease } from '../types/officer';
 
-interface OfficerContextType {
-  entries: HospitalEntry[];
-  setEntries: React.Dispatch<React.SetStateAction<HospitalEntry[]>>;
-  instructions: Instruction[];
-  setInstructions: React.Dispatch<React.SetStateAction<Instruction[]>>;
-  plans: ResponsePlan[];
-  setPlans: React.Dispatch<React.SetStateAction<ResponsePlan[]>>;
-}
-
-const OfficerContext = createContext<OfficerContextType | undefined>(undefined);
+// Officer data now lives in the database (Module 17). The provider is kept so the app shell
+// doesn't change; useOfficer composes the TanStack Query hooks, which share one cache.
 
 export function OfficerProvider({ children }: {children: ReactNode;}) {
-  const [entries, setEntries] = useState(hospitalEntries);
-  const [instructions, setInstructions] = useState(initialInstructions);
-  const [plans, setPlans] = useState(responsePlans);
-  return (
-    <OfficerContext.Provider value={{ entries, setEntries, instructions, setInstructions, plans, setPlans }}>
-      {children}
-    </OfficerContext.Provider>);
-
+  return <>{children}</>;
 }
 
 export function useOfficer() {
-  const ctx = useContext(OfficerContext);
-  if (!ctx) throw new Error('useOfficer must be used within an OfficerProvider');
-  return ctx;
+  const hospital = useOwnHospital();
+  const entries = useHospitalEntries();
+  const instructions = useInstructions();
+  const plans = usePlans();
+  const saveEntryM = useSaveEntry();
+  const statusM = useSetInstructionStatus();
+  const savePlanM = useSavePlan();
+  const deletePlanM = useDeletePlan();
+
+  const queries = [hospital, entries, instructions, plans];
+  return {
+    hospital: hospital.data,
+    entries: entries.data ?? [],
+    instructions: instructions.data ?? [],
+    plans: plans.data ?? [],
+    isLoading: queries.some((q) => q.isLoading),
+    error: queries.find((q) => q.error)?.error as Error | undefined,
+    saveEntry: (date: string, disease: OfficerDisease, counts: EntryCounts) => saveEntryM.mutateAsync({ date, disease, counts }),
+    setInstructionStatus: (id: string, status: InstructionStatus, reason?: string) =>
+    statusM.mutateAsync({ id, status, reason }),
+    savePlan: (plan: PlanInput, id?: string) => savePlanM.mutateAsync({ plan, id }),
+    deletePlan: (id: string) => deletePlanM.mutateAsync(id),
+    saving: saveEntryM.isPending || statusM.isPending || savePlanM.isPending || deletePlanM.isPending
+  };
 }

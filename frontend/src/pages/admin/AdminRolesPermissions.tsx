@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Shield, Lock } from 'lucide-react';
 import { useAdmin } from '../../context/AdminContext';
-import { ROLES, ROLE_LABELS, Role } from '../../lib/rbac';
-
-type Action = 'view' | 'create' | 'edit' | 'export';
-const ACTIONS: Action[] = ['view', 'create', 'edit', 'export'];
+import { AccessLevel, ModuleId, PERMISSION_MATRIX, ROLES, ROLE_LABELS, Role } from '../../lib/rbac';
 
 const ROLE_DESC: Record<Role, string> = {
   admin: 'People, hospitals and system settings. No science pages.',
@@ -13,59 +10,55 @@ const ROLE_DESC: Record<Role, string> = {
   policymaker: 'Reads approved scenarios and reports.'
 };
 
-const MODULES = [
-'User Management',
-'Hospitals',
-'Audit Logs',
-'Disease Presets',
-'Interventions',
-'Simulations',
-'Report approval',
-'Reports',
-'Hospital Tracker'] as
-const;
-type Module = (typeof MODULES)[number];
+const MODULE_LABELS: Record<ModuleId, string> = {
+  auth: 'Own account',
+  dashboard: 'Dashboard',
+  population: 'Population data',
+  disease: 'Disease parameters',
+  presets: 'Disease presets & intervention library',
+  simulation: 'Simulations',
+  branching: 'Branching (early outbreak)',
+  hcw: 'Health-worker layer',
+  rt: 'Rt tracking',
+  interventions: 'Interventions / local plans',
+  geographic: 'Geographic spread',
+  healthcare: 'Hospital tracker',
+  capacity: 'Capacity profiles',
+  visualization: 'Visualisation',
+  scenarios: 'Scenario library',
+  scenario: 'Scenario comparison',
+  reports: 'Reports & approval',
+  users: 'User & access management',
+  dataquality: 'Data quality',
+  instructions: 'Response instructions'
+};
 
-/** Science modules the Admin can never be given. */
-const ADMIN_LOCKED: Module[] = ['Simulations', 'Report approval'];
+const LEVEL_HELP: Record<AccessLevel, string> = {
+  full: 'Everything, including approval',
+  write: 'Create and edit (own scope)',
+  limited: 'Restricted actions',
+  review: 'View shared items and clone',
+  read: 'View only',
+  self: 'Own account only',
+  none: 'No access'
+};
 
-const DEFAULTS: Record<Role, Partial<Record<Module, Action[]>>> = {
-  admin: {
-    'User Management': ACTIONS,
-    Hospitals: ACTIONS,
-    'Audit Logs': ['view', 'export'],
-    'Disease Presets': ACTIONS,
-    Interventions: ACTIONS
-  },
-  analyst: {
-    'Disease Presets': ['view', 'create', 'edit'],
-    Interventions: ['view', 'create', 'edit'],
-    Simulations: ACTIONS,
-    'Report approval': ['view', 'edit'],
-    Reports: ACTIONS,
-    'Hospital Tracker': ['view']
-  },
-  officer: {
-    'Hospital Tracker': ['view', 'create', 'edit'],
-    Reports: ['view', 'export'],
-    'Disease Presets': ['view'],
-    Interventions: ['view']
-  },
-  policymaker: { Reports: ['view', 'export'], 'Disease Presets': ['view'], Interventions: ['view'] }
+const LEVEL_TONE: Record<AccessLevel, string> = {
+  full: 'bg-primary/10 text-primary border-primary/20',
+  write: 'bg-primary/10 text-primary border-primary/20',
+  limited: 'bg-hover text-text-primary border-border',
+  review: 'bg-hover text-text-primary border-border',
+  read: 'bg-hover text-text-primary border-border',
+  self: 'bg-background text-text-secondary border-border',
+  none: 'bg-background text-text-secondary border-border'
 };
 
 export function AdminRolesPermissions() {
   const { users } = useAdmin();
   const [activeRole, setActiveRole] = useState<Role>('admin');
-  const [matrix, setMatrix] = useState(DEFAULTS);
   const count = (r: Role) => users.filter((u) => u.role === r).length;
-
-  const toggle = (mod: Module, action: Action) =>
-  setMatrix((m) => {
-    const current = m[activeRole][mod] ?? [];
-    const next = current.includes(action) ? current.filter((a) => a !== action) : [...current, action];
-    return { ...m, [activeRole]: { ...m[activeRole], [mod]: next } };
-  });
+  const levels = PERMISSION_MATRIX[activeRole];
+  const modules = (Object.keys(MODULE_LABELS) as ModuleId[]).sort((x, y) => (levels[x] === 'none' ? 1 : 0) - (levels[y] === 'none' ? 1 : 0));
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -96,7 +89,10 @@ export function AdminRolesPermissions() {
             <Shield className="text-primary mr-3" size={20} />
             <div>
               <h2 className="text-[16px] font-semibold text-text-primary">{ROLE_LABELS[activeRole]} permissions</h2>
-              <p className="text-[12px] text-text-secondary">What this role can do in each area.</p>
+              <p className="text-[12px] text-text-secondary">
+                What this role can do in each area. This is the permission matrix the server enforces (mirrored from
+                <code className="mx-1 text-[11px]">src/lib/rbac.ts</code>; a backend test checks they match). Changing it is a code change in the MVP.
+              </p>
             </div>
           </div>
 
@@ -105,37 +101,25 @@ export function AdminRolesPermissions() {
               <thead className="bg-background text-text-secondary border-b border-border">
                 <tr>
                   <th className="px-6 py-3 font-medium">Area</th>
-                  {ACTIONS.map((a) => <th key={a} className="px-4 py-3 font-medium text-center capitalize">{a}</th>)}
+                  <th className="px-4 py-3 font-medium">Access</th>
+                  <th className="px-4 py-3 font-medium">Meaning</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {MODULES.map((mod) => {
-                  const locked = activeRole === 'admin' && ADMIN_LOCKED.includes(mod);
-                  const granted = matrix[activeRole][mod] ?? [];
+                {modules.map((mod) => {
+                  const level = levels[mod] ?? 'none';
                   return (
                     <tr key={mod}>
                       <td className="px-6 py-3 font-medium text-text-primary">
                         <span className="flex items-center gap-2">
-                          {mod}
-                          {locked &&
-                          <span className="inline-flex items-center gap-1 text-[11px] font-normal text-text-secondary">
-                              <Lock size={11} /> Not allowed for Admin
-                            </span>
-                          }
+                          {MODULE_LABELS[mod]}
+                          {level === 'none' && <Lock size={11} className="text-text-secondary" aria-label="No access" />}
                         </span>
                       </td>
-                      {ACTIONS.map((action) =>
-                      <td key={action} className="px-4 py-3 text-center">
-                          <input
-                          type="checkbox"
-                          aria-label={`${ROLE_LABELS[activeRole]} ${action} ${mod}`}
-                          checked={!locked && granted.includes(action)}
-                          disabled={locked}
-                          onChange={() => toggle(mod, action)}
-                          className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40" />
-                        
-                        </td>
-                      )}
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium border capitalize ${LEVEL_TONE[level]}`}>{level}</span>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary">{LEVEL_HELP[level]}</td>
                     </tr>);
 
                 })}

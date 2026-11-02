@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pause, Play } from 'lucide-react';
 
 interface SpreadTimelineProps {

@@ -1,42 +1,39 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Download, RotateCcw } from 'lucide-react';
+import { useAuditLog } from '../../api/admin';
 import { useAdmin } from '../../context/AdminContext';
 import { AuditAction } from '../../types/admin';
 import { downloadCsv } from '../../utils/csv';
+import { IllustrativeBadge, QueryState } from '../../components/officer/DataState';
 
 const selectCls =
 'w-full px-3 py-2 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary';
 const labelCls = 'block text-[12px] font-medium text-text-secondary mb-1';
 
-const ACTIONS: AuditAction[] = [
+// Actions about the science (parameters, approvals, publication) are highlighted.
+const SCIENCE: string[] = [
 'Parameter change',
 'Parameter set approved',
-'Simulation run',
-'Report submitted',
 'Report approved',
 'Report published',
-'User created',
-'User updated',
-'Account status changed',
-'Hospital registered',
-'Hospital updated',
-'Sign in'];
-
-
-const SCIENCE: AuditAction[] = ['Parameter change', 'Parameter set approved', 'Report approved', 'Report published'];
+'Preset approved',
+'Preset updated',
+'Scenario approved'] satisfies (AuditAction | string)[];
 
 export function AdminAuditLogs() {
-  const { audit } = useAdmin();
+  const { users } = useAdmin();
   const [user, setUser] = useState('');
   const [action, setAction] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  // User, action and start date are filtered by the server; the end date is applied here.
+  const auditQ = useAuditLog({ user, action, since: from ? `${from}T00:00:00` : undefined, limit: 1000 });
+  const audit = auditQ.data?.items ?? [];
+  const actions = auditQ.data?.actions ?? [];
+  const total = auditQ.data?.total ?? 0;
 
-  const people = Array.from(new Set(audit.map((a) => a.user))).sort();
-  const rows = audit.filter((a) => {
-    const day = a.time.slice(0, 10);
-    return (!user || a.user === user) && (!action || a.action === action) && (!from || day >= from) && (!to || day <= to);
-  });
+  const people = Array.from(new Set([...users.map((u) => u.name), ...audit.map((a) => a.user)])).sort();
+  const rows = audit.filter((a) => !to || a.time.slice(0, 10) <= to);
   const filtered = !!(user || action || from || to);
 
   const exportCsv = () =>
@@ -74,7 +71,7 @@ export function AdminAuditLogs() {
           <label htmlFor="al-action" className={labelCls}>Action</label>
           <select id="al-action" className={selectCls} value={action} onChange={(e) => setAction(e.target.value)}>
             <option value="">All actions</option>
-            {ACTIONS.map((a) => <option key={a}>{a}</option>)}
+            {actions.map((a) => <option key={a}>{a}</option>)}
           </select>
         </div>
         <div>
@@ -94,6 +91,7 @@ export function AdminAuditLogs() {
         </button>
       </div>
 
+      <QueryState isLoading={auditQ.isLoading} error={auditQ.error}>
       <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
@@ -123,16 +121,20 @@ export function AdminAuditLogs() {
                     </span>
                   </td>
                   <td className="px-6 py-3 text-text-primary">{a.target}</td>
-                  <td className="px-6 py-3 text-text-secondary">{a.details}</td>
+                  <td className="px-6 py-3 text-text-secondary">
+                    {a.details}
+                    {a.illustrative && <IllustrativeBadge className="ml-2 !px-2 !py-0.5 !text-[10px]" />}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
         <div className="px-6 py-3.5 border-t border-border bg-background text-[13px] text-text-secondary">
-          Showing {rows.length} of {audit.length} entries
+          Showing {rows.length} of {total} entries{total > audit.length ? ` (latest ${audit.length} loaded)` : ''}
         </div>
       </div>
+      </QueryState>
     </div>);
 
 }

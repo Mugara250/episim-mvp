@@ -13,6 +13,9 @@ export interface InterventionType {
   /** 0 to 1 */
   defaultEffect: number;
   source: string;
+  /** Which part of the SEIHFR model it acts on (docs Module 8). */
+  engineLever?: string;
+  leverDescription?: string;
 }
 
 export interface PackageItem {
@@ -33,12 +36,16 @@ export interface InterventionPackage {
   description: string;
   items: PackageItem[];
   updated: string;
+  /** Seeded sample package for the demo. */
+  illustrative?: boolean;
+  scenariosUsing?: number;
 }
 
 export interface TypeDraft {
   name: string;
   key: string;
   mechanism: EffectMechanism;
+  engineLever: string;
   defaultEffect: string;
   source: string;
 }

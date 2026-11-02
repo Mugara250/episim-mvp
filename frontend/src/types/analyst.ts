@@ -1,5 +1,3 @@
-import { SimResult, SimSettings } from '../lib/models/seihfr';
-
 export type DiseaseName = 'Ebola' | 'Marburg';
 
 export type DatasetStatus = 'Passed' | 'Warnings' | 'Failed';
@@ -39,14 +37,6 @@ export interface ScenarioRecord {
   date: string;
   status: ScenarioStatus;
   thisWeek: boolean;
-}
-
-export interface SavedScenario {
-  id: string;
-  name: string;
-  settings: SimSettings;
-  result: SimResult;
-  savedAt: string;
 }
 
 export type DraftStatus = 'Draft' | 'Pending approval' | 'Approved';

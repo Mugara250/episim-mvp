@@ -1,4 +1,3 @@
-import React from 'react';
 import { InstructionStatus } from '../../types/officer';
 
 export const INSTRUCTION_STATUSES: InstructionStatus[] = ['Not started', 'In progress', 'Done', "Can't do"];

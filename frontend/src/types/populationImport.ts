@@ -74,6 +74,7 @@ export interface ImportDetails {
 }
 
 export interface ExistingDataset {
+  id: string;
   name: string;
   latestVersion: number;
   scenariosUsing: number;

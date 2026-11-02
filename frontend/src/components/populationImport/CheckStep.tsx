@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, HelpCircle, MinusCircle, Users, LayoutGrid, XCircle } from 'lucide-react';
 import { PopulationImportState } from '../../hooks/usePopulationImport';
 import { ImportFormat } from '../../types/populationImport';

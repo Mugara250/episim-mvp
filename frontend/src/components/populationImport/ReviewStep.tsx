@@ -1,8 +1,7 @@
 import React from 'react';
 import { Clock, Play } from 'lucide-react';
 import { PopulationImportState } from '../../hooks/usePopulationImport';
-import { BACKGROUND_THRESHOLD_BYTES } from '../../data/populationImport';
-import { formatBytes, formatCount } from '../../utils/populationImport';
+import { FULL_READ_LIMIT_BYTES, formatBytes, formatCount } from '../../utils/populationImport';
 import { ImportStatusPanel } from './ImportStatusPanel';
 
 interface ReviewStepProps {
@@ -34,10 +33,9 @@ export function ReviewStep({ s, readOnly, onRetry, onComputeAggregates, onViewDa
     label: 'Records to import',
     value:
     <>
-          {s.validation.partial ? '≈ ' : ''}
           {formatCount(s.records)}
-          {s.file.rows - s.records > 0 &&
-      <span className="text-text-secondary"> · {formatCount(s.file.rows - s.records)} rows with errors left out</span>
+          {s.validation.errorRows > 0 &&
+      <span className="text-text-secondary"> · {formatCount(s.validation.errorRows)} rows with errors left out</span>
       }
         </>,
 
@@ -54,7 +52,7 @@ export function ReviewStep({ s, readOnly, onRetry, onComputeAggregates, onViewDa
   }];
 
 
-  const background = s.file.sizeBytes > BACKGROUND_THRESHOLD_BYTES;
+  const background = s.file.sizeBytes > FULL_READ_LIMIT_BYTES;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
@@ -80,7 +78,7 @@ export function ReviewStep({ s, readOnly, onRetry, onComputeAggregates, onViewDa
         <p className="text-[13px] text-text-secondary mt-2 flex items-start gap-2">
           <Clock size={15} className="text-primary mt-0.5 flex-shrink-0" />
           {background ?
-          'The import runs in the background and takes a few minutes for a file this size. You can leave this page and keep working.' :
+          'The import runs in the background and may take a minute for a file this size. You can leave this page and keep working.' :
           'The import runs in the background and should take under a minute. You can leave this page.'}
         </p>
         <button

@@ -1,8 +1,7 @@
-import React from 'react';
 import { Copy, Eye, FolderOpen, Globe2, Lock, PlayCircle, Plus, Search, Share2, Trash2 } from 'lucide-react';
 import { ScenariosState } from '../../hooks/useScenarios';
 import { Scenario } from '../../types/scenarios';
-import { datasetLabel, findPreset, packageLabel, PERMISSION_LABELS } from '../../utils/scenarios';
+import { dateLabel, datasetLabel, packageLabel, PERMISSION_LABELS } from '../../utils/scenarios';
 
 const selectCls = 'px-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary';
 
@@ -165,7 +164,6 @@ export function ScenarioLibrary({ s }: {s: ScenariosState;}) {
         <ul>
             {s.rows.map((sc) => {
             const access = s.access(sc);
-            const preset = findPreset(sc.presetId);
             const manage = s.canManage(sc);
             return (
               <li
@@ -180,15 +178,18 @@ export function ScenarioLibrary({ s }: {s: ScenariosState;}) {
                       {sc.name}
                     </button>
                     <span className="flex items-center gap-2 mt-1 text-[12px] text-text-secondary">
-                      {sc.id} · {sc.created}
+                      {sc.id} · {dateLabel(sc.created)}
                       {!shared && <StatusBadge s={sc} />}
                     </span>
                   </div>
-                  <span className="text-[13px] text-text-primary truncate">{preset?.name ?? <span className="text-text-secondary">Not chosen</span>}</span>
+                  <span className="text-[13px] text-text-primary truncate">
+                    {sc.presetName ?? <span className="text-text-secondary">Not chosen</span>}
+                    {sc.presetProvisional && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-warning/15 text-warning">Provisional</span>}
+                  </span>
                   <span className="text-[13px] text-text-primary truncate">{sc.datasetId ? datasetLabel(sc) : <span className="text-text-secondary">Not chosen</span>}</span>
-                  <span className={`text-[13px] truncate ${sc.packageId ? 'text-text-primary' : 'text-text-secondary'}`}>{packageLabel(sc.packageId)}</span>
+                  <span className={`text-[13px] truncate ${sc.packageId ? 'text-text-primary' : 'text-text-secondary'}`}>{packageLabel(sc.packageName)}</span>
                   <div className="min-w-0">
-                    <span className="block text-[13px] text-text-primary truncate">{shared ? sc.owner : sc.owner === s.userName ? 'You' : sc.owner}</span>
+                    <span className="block text-[13px] text-text-primary truncate">{shared ? sc.owner : sc.ownerId === s.userId ? 'You' : sc.owner}</span>
                     {shared && access && access !== 'admin' && access !== 'owner' &&
                   <span className="block text-[12px] text-text-secondary">{PERMISSION_LABELS[access]}</span>
                   }
@@ -212,7 +213,7 @@ export function ScenarioLibrary({ s }: {s: ScenariosState;}) {
           </ul>
         }
       </section>
-      <p className="text-[12px] text-text-secondary">Sample scenarios and population figures are illustrative placeholders.</p>
+      <p className="text-[12px] text-text-secondary">Seeded sample scenarios and population figures are illustrative, not verified data. Simulation results are scenario estimates, not forecasts.</p>
     </div>);
 
 }

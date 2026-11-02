@@ -1,28 +1,48 @@
 import { useEffect, useMemo, useState } from 'react';
-import { geoCapacityProfiles, geoScenarios } from '../data/geographic';
+import { useSearchParams } from 'react-router-dom';
+import { useCapacityOptions, useRuns } from '../api/comparison';
+import { useDistrictBoundaries, useGeoResults } from '../api/geographic';
 import { GeoMetric } from '../types/geographic';
-import { projectDistrict, projectSpread, topRiskDistricts } from '../utils/geographicSpread';
 
-interface Options {
-  scenarioId?: string;
-  metric?: GeoMetric;
-  selectedId?: string;
-  showLinks?: boolean;
-}
+/** State for the Geographic Spread page. Run and capacity live in the URL (?run=&capacity=) so links can be shared. */
+export function useGeographicSpread() {
+  const [params, setParams] = useSearchParams();
+  const runsQ = useRuns();
+  const optionsQ = useCapacityOptions();
+  const boundariesQ = useDistrictBoundaries();
 
-export function useGeographicSpread(init: Options) {
-  const [scenarioId, setScenarioId] = useState(init.scenarioId ?? geoScenarios[0].id);
-  const [capacityId, setCapacityId] = useState(geoCapacityProfiles[0].id);
-  const [metric, setMetric] = useState<GeoMetric>(init.metric ?? 'cases');
-  const [day, setDay] = useState(34);
+  const geoRuns = useMemo(
+    () => (runsQ.data ?? []).filter((r) => r.modelType === 'seihfr_geo' && r.status === 'completed'),
+    [runsQ.data]
+  );
+  const runParam = params.get('run');
+  const runId = runParam ?? geoRuns[0]?.id ?? null;
+  const capacityParam = params.get('capacity');
+
+  const resultsQ = useGeoResults(runId, capacityParam);
+  const g = resultsQ.data;
+  const H = g?.days ?? 0;
+
+  const [metric, setMetric] = useState<GeoMetric>('cases');
+  const [day, setDay] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [selectedId, setSelectedId] = useState(init.selectedId ?? 'gasabo');
-  const [responses, setResponses] = useState<Record<string, number>>({});
-  const [showLinks, setShowLinks] = useState(!!init.showLinks);
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [showLinks, setShowLinks] = useState(false);
 
-  const scenario = geoScenarios.find((s) => s.id === scenarioId) ?? geoScenarios[0];
-  const capacity = geoCapacityProfiles.find((c) => c.id === capacityId) ?? geoCapacityProfiles[0];
-  const H = scenario.horizon;
+  const setParam = (key: string, value: string | null) => {
+    const p = new URLSearchParams(params);
+    if (value) p.set(key, value);else
+    p.delete(key);
+    setParams(p, { replace: true });
+  };
+
+  // New run: start the timeline at the end of the horizon (the whole picture), select the seed district.
+  useEffect(() => {
+    if (!g) return;
+    setDay(g.days);
+    setPlaying(false);
+    setSelectedCode((c) => c && g.districts.some((d) => d.code === c) ? c : g.seedDistrictCode ?? g.districts[0]?.code ?? null);
+  }, [g?.runId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!playing) return;
@@ -34,7 +54,7 @@ export function useGeographicSpread(init: Options) {
         }
         return d + 1;
       });
-    }, 180);
+    }, 120);
     return () => window.clearInterval(id);
   }, [playing, H]);
 
@@ -43,41 +63,33 @@ export function useGeographicSpread(init: Options) {
     setPlaying((p) => !p);
   };
 
-  const projections = useMemo(() => projectSpread(scenario, capacity, responses), [scenario, capacity, responses]);
-  const maxCases = useMemo(() => Math.max(10, ...projections.map((p) => p.totalCases)), [projections]);
-  const topRisk = useMemo(() => topRiskDistricts(projections), [projections]);
-  const selected = projections.find((p) => p.district.id === selectedId) ?? projections[0];
-  const baseline = useMemo(() => projectDistrict(selected.district, scenario, capacity), [selected.district, scenario, capacity]);
-
-  const setResponseDay = (id: string, value: number) =>
-  setResponses((r) => {
-    const next = { ...r };
-    if (value >= H) delete next[id];else
-    next[id] = value;
-    return next;
-  });
+  const selected = g?.districts.find((d) => d.code === selectedCode) ?? null;
+  const watch = useMemo(
+    () => (g?.watchList ?? []).map((code) => g?.districts.find((d) => d.code === code)).filter((d) => !!d),
+    [g]
+  );
 
   return {
-    scenario,
-    capacity,
-    scenarioId,
-    setScenarioId,
-    capacityId,
-    setCapacityId,
+    runsQ,
+    geoRuns,
+    runId,
+    setRunId: (id: string) => setParam('run', id),
+    capacityOptions: optionsQ.data ?? [],
+    capacityId: capacityParam ?? g?.capacity?.profileId ?? null,
+    setCapacityId: (id: string | null) => setParam('capacity', id),
+    boundariesQ,
+    resultsQ,
+    results: g,
+    horizon: H,
     metric,
     setMetric,
     day,
     setDay,
     playing,
     togglePlay,
-    projections,
-    maxCases,
-    topRisk,
     selected,
-    baseline,
-    selectDistrict: setSelectedId,
-    responseDay: responses[selected.district.id] ?? H,
-    setResponseDay,
+    selectDistrict: setSelectedCode,
+    watch,
     showLinks,
     setShowLinks
   };

@@ -1,27 +1,31 @@
-import React from 'react';
-import { InterventionPackage, InterventionType } from '../../types/interventions';
-import { timelineLength } from '../../utils/interventions';
-import { ITEM_COLORS } from '../interventionLibrary/PackageTimeline';
+import { timelineLength } from '../../utils/scenarios';
+
+// Same palette as the Interventions page timeline.
+const ITEM_COLORS = ['#10B981', '#38BDF8', '#FB923C', '#A78BFA', '#F472B6', '#FACC15'];
+
+interface TimelinePackage {
+  items: {id: string;typeId: string;startDay: number;endDay?: number | null;}[];
+}
 
 /** Compact, label-free preview of a package timeline. */
-export function MiniTimeline({ pkg, types }: {pkg: InterventionPackage;types: InterventionType[];}) {
+export function MiniTimeline({ pkg, types }: {pkg: TimelinePackage;types: {id: string;name: string;}[];}) {
   const length = timelineLength(pkg.items);
   const pos = (d: number) => Math.min(d, length) / length * 100;
   const summary = pkg.items.
   map((i) => {
     const name = types.find((t) => t.id === i.typeId)?.name ?? 'Intervention';
-    return `${name}: day ${i.startDay}${i.endDay === null ? ' onward' : `–${i.endDay}`}`;
+    return `${name}: day ${i.startDay}${i.endDay == null ? ' onward' : `–${i.endDay}`}`;
   }).
   join('; ');
   return (
     <div role="img" aria-label={summary} className="space-y-1.5">
       {pkg.items.map((item, idx) => {
         const start = pos(item.startDay);
-        const end = item.endDay === null ? 100 : pos(item.endDay);
+        const end = item.endDay == null ? 100 : pos(item.endDay);
         return (
           <div key={item.id} className="relative h-2 rounded-full bg-surface-2">
             <div
-              className={`absolute inset-y-0 ${item.endDay === null ? 'rounded-l-full' : 'rounded-full'}`}
+              className={`absolute inset-y-0 ${item.endDay == null ? 'rounded-l-full' : 'rounded-full'}`}
               style={{ left: `${start}%`, width: `${Math.max(end - start, 2)}%`, backgroundColor: ITEM_COLORS[idx % ITEM_COLORS.length] }} />
             
           </div>);

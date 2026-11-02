@@ -1,7 +1,6 @@
-import React from 'react';
 import { Lock } from 'lucide-react';
 import { PopulationDataset } from '../../types/scenarios';
-import { formatPop } from '../../utils/scenarios';
+import { dateLabel, formatPop } from '../../utils/scenarios';
 import { ChoiceCard } from './ChoiceCard';
 import { ConfigEmpty } from './ConfigEmpty';
 
@@ -34,7 +33,10 @@ export function DatasetStep({ datasets, value, onChange, onImport }: DatasetStep
         <div role="radiogroup" aria-label="Population dataset" className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {datasets.map((d) =>
           <ChoiceCard key={d.id} selected={value === d.id} onSelect={() => onChange(d.id)}>
-                <span className="text-[15px] font-semibold text-text-primary pr-8">{d.name}</span>
+                <span className="flex items-center gap-2 pr-8 flex-wrap">
+                  <span className="text-[15px] font-semibold text-text-primary">{d.name}</span>
+                  {d.illustrative && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning/15 text-warning">Illustrative</span>}
+                </span>
                 <span className="text-[12px] text-text-secondary mt-0.5 mb-4">{d.coverage}</span>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-border mt-auto">
                   <div>
@@ -51,14 +53,14 @@ export function DatasetStep({ datasets, value, onChange, onImport }: DatasetStep
                   </div>
                   <div>
                     <dt className="text-[11px] text-text-secondary">Last imported</dt>
-                    <dd className="text-[12px] text-text-primary tabular-nums">{d.lastImported}</dd>
+                    <dd className="text-[12px] text-text-primary tabular-nums">{dateLabel(d.lastImported)}</dd>
                   </div>
                 </dl>
               </ChoiceCard>
           )}
           </div>
         }
-        {datasets.length > 0 && <p className="text-[12px] text-text-secondary mt-4">Population totals are illustrative placeholders.</p>}
+        {datasets.length > 0 && <p className="text-[12px] text-text-secondary mt-4">Datasets marked Illustrative are sample figures for the demo, not verified census extracts.</p>}
       </div>
     </div>);
 

@@ -1,5 +1,3 @@
-import React from 'react';
-import { DISEASES, DiseaseId } from '../../lib/models/diseases';
 
 export function SliderField({
   label,
@@ -38,28 +36,6 @@ export function SliderField({
         className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary" />
       
       {hint && <p className="text-[11px] text-text-secondary mt-1">{hint}</p>}
-    </div>);
-
-}
-
-export function DiseaseToggle({ value, onChange }: {value: DiseaseId;onChange: (id: DiseaseId) => void;}) {
-  return (
-    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Disease">
-      {DISEASES.map((d) => {
-        const active = d.id === value;
-        return (
-          <button
-            key={d.id}
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(d.id)}
-            className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${active ? 'border-primary bg-hover' : 'border-border hover:border-primary/40'}`}>
-            
-            <span className={`block text-[13px] font-semibold ${active ? 'text-primary' : 'text-text-primary'}`}>{d.name}</span>
-            <span className="block text-[11px] text-text-secondary">{d.provisional ? 'Provisional values' : d.virus}</span>
-          </button>);
-
-      })}
     </div>);
 
 }

@@ -1,7 +1,6 @@
-import React from 'react';
 import { GitBranch, Lock } from 'lucide-react';
-import { DISTRICTS, PROVINCES, SECTORS, SOURCES } from '../../data/populationImport';
 import { PopulationImportState } from '../../hooks/usePopulationImport';
+import { DISTRICTS, PROVINCES, SECTORS, SOURCES } from '../../utils/populationImport';
 
 const inputCls =
 'w-full px-3 py-2.5 rounded-lg border border-border bg-background text-[13px] text-text-primary focus:outline-none focus:border-primary disabled:opacity-60';
