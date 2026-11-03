@@ -1,9 +1,12 @@
-# Render Blueprint (New + → Blueprint → pick this repo). A persistent disk needs a paid plan (Starter).
+# Render Blueprint (New → Blueprint → pick this repo).
+# Free plan: no persistent disk, so the database resets to the seeded demo data whenever the service
+# restarts, sleeps (after 15 min idle) or redeploys. For data that persists, use plan: starter and
+# uncomment the disk block.
 services:
   - type: web
     name: episim-mvp
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: JWT_SECRET
@@ -12,7 +15,7 @@ services:
         value: "true"
       - key: WORKER_THREADS
         value: "1"
-    disk:
-      name: episim-data
-      mountPath: /data
-      sizeGB: 1
+    # disk:
+    #   name: episim-data
+    #   mountPath: /data
+    #   sizeGB: 1

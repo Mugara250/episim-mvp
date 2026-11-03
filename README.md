@@ -133,7 +133,7 @@ docker run -p 8000:8000 -v episim-data:/data -e JWT_SECRET=$(python3 -c 'import 
 
 **Fly.io** (`fly.toml`): `fly launch --no-deploy --copy-config` (pick a unique app name),
 `fly volumes create episim_data --size 1 --region jnb`, `fly secrets set JWT_SECRET=...`, `fly deploy`.
-**Render** (`render.yaml`): push to GitHub, then *New → Blueprint*. A disk needs the Starter plan.
+**Render** (`render.yaml`, free plan): *New → Blueprint* → pick the repo. Free has no disk, so data resets to the seed on each sleep or deploy; a disk needs the Starter plan.
 
 ## Repository layout
 
