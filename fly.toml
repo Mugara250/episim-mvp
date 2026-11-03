@@ -1,0 +1,34 @@
+# Fly.io config. Change `app` to a unique name (it becomes https://<app>.fly.dev).
+# First deploy: see "Deploying" in README.md.
+app = "episim-mvp-CHANGE-ME"
+primary_region = "jnb"   # Johannesburg, the closest Fly region to Rwanda
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DEMO_MODE = "true"
+  WORKER_THREADS = "1"
+
+[[mounts]]
+  source = "episim_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Stops the machine when idle (cheaper) and starts it on the next visit in a few seconds.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

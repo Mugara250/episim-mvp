@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     require_distinct_approver: bool = True
     # Monte Carlo runs used by the geographic what-if preview.
     what_if_runs: int = 50
+    # Comma-separated browser origins allowed by CORS (only needed when the frontend is on another domain).
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Built frontend (vite build output). When the folder exists, the API also serves the web app.
+    static_dir: str = str(BACKEND_DIR.parent / "frontend" / "dist")
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def resolved_database_url(self) -> str:

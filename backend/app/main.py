@@ -3,10 +3,12 @@
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.api import (
     admin,
@@ -79,7 +81,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=get_settings().cors_origin_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -108,3 +110,18 @@ app.include_router(admin.public_router)
 @app.get("/api/health", tags=["meta"])
 def health():
     return {"status": "ok"}
+
+
+# Production: serve the built frontend from the same origin as the API, so the browser's relative
+# /api calls need no proxy or CORS. Unknown paths fall back to index.html for React Router URLs.
+_static = Path(get_settings().static_dir).resolve()
+if (_static / "index.html").is_file():
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "api":
+            raise HTTPException(status_code=404)
+        candidate = (_static / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(_static):
+            return FileResponse(candidate)
+        return FileResponse(_static / "index.html")

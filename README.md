@@ -111,6 +111,30 @@ flowchart LR
 - **Capacity is a check, not an input**: per-run peak bed demand is stored, so the chance beds run out and the
   "beds run out from day N" line are computed for whichever capacity profile you pick.
 
+## Deploying
+
+The app ships as **one Docker container**: the image builds the frontend, and FastAPI serves it next to
+`/api` on port 8000. `deploy/start.sh` runs migrations, seeds an empty database and starts **one** uvicorn
+process. Keep it to one process: simulations run in an in-process thread pool on SQLite. Mount a persistent
+volume at **`/data`**, which holds the SQLite database and generated PDFs.
+
+```bash
+docker build -t episim-mvp .
+docker run -p 8000:8000 -v episim-data:/data -e JWT_SECRET=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))') episim-mvp
+```
+
+| Variable | Default in the image | Notes |
+|---|---|---|
+| `JWT_SECRET` | dev default | **Set it.** Required when `DEMO_MODE=false` |
+| `DEMO_MODE` | `true` | Demo ribbon and role switcher (anyone can sign in as any role) |
+| `WORKER_THREADS` | `1` | Concurrent simulations |
+| `DATABASE_URL` / `FILES_DIR` | `/data/episim.db` / `/data/files` | |
+| `CORS_ORIGINS` | localhost:5173 | Only needed if the frontend is hosted on another domain |
+
+**Fly.io** (`fly.toml`): `fly launch --no-deploy --copy-config` (pick a unique app name),
+`fly volumes create episim_data --size 1 --region jnb`, `fly secrets set JWT_SECRET=...`, `fly deploy`.
+**Render** (`render.yaml`): push to GitHub, then *New → Blueprint*. A disk needs the Starter plan.
+
 ## Repository layout
 
 ```
